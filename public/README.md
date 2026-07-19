@@ -54,13 +54,13 @@ Everything below is marked in the page with cedarwood-coloured *"to be confirmed
 
 | What | Where |
 |---|---|
-| Street address (Niagara) | `index.html` → Contact → "Clinic" |
 | Clinic phone | Contact → "Phone" (also update the hero **Call the clinic** button to a `tel:` link) |
 | Clinic email | Contact → "Email" **and** `CLINIC_EMAIL` in `script.js` |
-| OHIP billing wording | Contact → "Coverage" |
 | Opening hours | Contact → `.hours` table (currently placeholder) |
 | Bilingual staff — which languages | Benefits → "Bilingual staff" |
 | Doctor bios | Doctors section — see note below |
+
+> Address is set to **6453 Morrisons Rd, Niagara Falls, Ontario**. OHIP/coverage wording has been removed from the page.
 
 **Doctor bios:** the two bios are placeholder *philosophy* statements written to be safe and generic. Replace them with the doctors' own words. I deliberately avoided stating credentials (medical school, years in practice, registration numbers) and pronouns — please add only what's verified.
 
