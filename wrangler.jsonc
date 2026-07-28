@@ -1,7 +1,27 @@
 {
+  "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "cedarhealth",
+  "main": "src/index.js",
   "compatibility_date": "2026-07-19",
   "assets": {
-    "directory": "./public"
-  }
+    "directory": "./public",
+    "binding": "ASSETS",
+    // The Worker is the front door for every request; it renders pages from D1,
+    // handles /api and /media, and falls back to env.ASSETS.fetch() for static files.
+    "run_worker_first": true,
+    "html_handling": "none",
+    "not_found_handling": "none"
+  },
+  "observability": { "enabled": true },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "cedarhealth",
+      // Replaced with the real id after `wrangler d1 create cedarhealth` (see DEPLOY.md).
+      "database_id": "PLACEHOLDER_DB_ID"
+    }
+  ],
+  "r2_buckets": [
+    { "binding": "MEDIA", "bucket_name": "cedarhealth-media" }
+  ]
 }

@@ -1,90 +1,64 @@
 # Cedar Health
 
-Single-page website for **Cedar Health**, a new family medical practice in Niagara, Ontario.
-Static HTML/CSS/JS — **no build step** — designed to deploy on **Cloudflare Pages** straight from a GitHub repo.
+Website for **Cedar Health**, a family medical practice in Niagara Falls, Ontario —
+with a built-in, client-editable CMS and an online patient-intake form. Runs entirely on
+**Cloudflare** (Workers + D1 + R2). No third-party CMS, no monthly SaaS.
 
-## Structure
+## What it does
 
-```
-cedar-health/
-├── index.html                 # the whole page
-├── styles.css                 # design tokens + layout
-├── script.js                  # reveals, header state, form handler
-├── images/
-│   ├── favicon.svg
-│   ├── dr-moyo-esenamunjor.jpg
-│   └── dr-osarugue-esenamunjor.jpg
-└── README.md
-```
+- **Public site** (`/`) — server-rendered from editable content, same design throughout.
+- **Editor** (`/admin`) — the clinic signs in with an email + password and edits the site
+  in plain-English forms (homepage, services, doctors, hours, logo, …). Saves are **live
+  instantly** — no rebuild, no developer.
+- **Patient intake** (`/intake`) — a detailed, PHIPA-aware registration form. Submissions
+  land in a private inbox in `/admin` and can be **exported to CSV**.
 
-Design notes: palette and motif are rooted in *eastern white cedar* (arborvitae, the "tree of life"), native to the Niagara escarpment. Type pairs **Bricolage Grotesque** (display) with **Newsreader** (body), loaded from Google Fonts. Accessible by default — skip link, keyboard focus rings, and `prefers-reduced-motion` respected.
+## Architecture
 
----
-
-## Deploy to Cloudflare Pages (via GitHub)
-
-1. **Create the repo and push:**
-   ```bash
-   cd cedar-health
-   git init
-   git add .
-   git commit -m "Cedar Health site"
-   git branch -M main
-   git remote add origin git@github.com:LordPixma/cedar-health.git   # adjust as needed
-   git push -u origin main
-   ```
-
-2. **In the Cloudflare dashboard:** Workers & Pages → Create → **Pages** → *Connect to Git* → pick the repo.
-
-3. **Build settings:**
-   - Framework preset: **None**
-   - Build command: *(leave blank)*
-   - Build output directory: **`/`** (repo root)
-
-4. **Save and Deploy.** Every push to `main` redeploys. Add your custom domain (e.g. `cedarhealth.co`) under the project's *Custom domains* tab.
-
-> Prefer Wrangler? `npx wrangler pages deploy . --project-name cedar-health` does the same from the CLI.
-
----
-
-## Before you go live — fill these in
-
-Everything below is marked in the page with cedarwood-coloured *"to be confirmed"* text or an HTML comment, so it's easy to find.
-
-| What | Where |
+| Piece | Tech |
 |---|---|
-| Street address (Niagara) | `index.html` → Contact → "Clinic" |
-| Clinic phone | Contact → "Phone" (also update the hero **Call the clinic** button to a `tel:` link) |
-| Clinic email | Contact → "Email" **and** `CLINIC_EMAIL` in `script.js` |
-| OHIP billing wording | Contact → "Coverage" |
-| Opening hours | Contact → `.hours` table (currently placeholder) |
-| Bilingual staff — which languages | Benefits → "Bilingual staff" |
-| Doctor bios | Doctors section — see note below |
+| Server + routing + rendering | Cloudflare **Worker** (`src/`) |
+| Editable content & intake submissions | **D1** (SQLite) |
+| Uploaded images (logo, hero, doctor photos) | **R2** |
+| Login | email + password (PBKDF2) + signed cookie session |
+| Static assets & the `/admin` app | `public/` via the Worker's assets binding |
 
-**Doctor bios:** the two bios are placeholder *philosophy* statements written to be safe and generic. Replace them with the doctors' own words. I deliberately avoided stating credentials (medical school, years in practice, registration numbers) and pronouns — please add only what's verified.
-
----
-
-## The registration form
-
-Out of the box the form needs **no backend**: on submit it opens the visitor's email client with the details pre-filled (edit `CLINIC_EMAIL` in `script.js`). That works the moment you deploy.
-
-To capture submissions server-side instead, add a **Cloudflare Pages Function**. Create `functions/api/register.js`:
-
-```js
-export async function onRequestPost({ request, env }) {
-  const data = await request.json();
-  // e.g. forward via MailChannels, write to D1/KV, or hit a webhook
-  return new Response(JSON.stringify({ ok: true }), {
-    headers: { "content-type": "application/json" },
-  });
-}
+```
+src/
+  index.js        Worker entry / router
+  api.js          JSON API (auth, content, uploads, intake, CSV export)
+  site.js         server-rendered home + intake pages
+  lib/            auth, db (D1), defaults (content + intake schema), html
+public/
+  styles.css, script.js, images/
+  admin/          the editor app (index.html, admin.css, admin.js)
+migrations/       D1 schema (0001) + generated seed (0002)
+scripts/gen-seed.mjs   builds the seed and hashes the first admin password
+wrangler.jsonc    Worker + D1 + R2 config
+DEPLOY.md         one-time setup + deploy steps + handover notes
 ```
 
-Then in `script.js`, replace the `mailto` block with a `fetch("/api/register", { method: "POST", body: JSON.stringify(...) })`. (Given your stack, D1 for records or KV for a simple queue both fit.)
+## Run locally
 
----
+```bash
+npm install
+npm run db:local     # create + seed the local database (first run only)
+npm run dev          # http://localhost:8787   — editor at /admin
+```
 
-## Images
+Local admin login is printed by the seed step (default `admin@cedarhealth.co` /
+`ChangeMe-Cedar2026!` unless you set `ADMIN_EMAIL` / `ADMIN_PASSWORD`).
 
-The two portraits in `images/` were resized to 760×760 for web. Higher-resolution originals exist — if you want crisper images, drop the full-size files in and keep the same filenames. They're rendered in grayscale via CSS (`filter: grayscale(1)`); remove that rule in `styles.css` (`.doc__photo img`) if you'd rather show them in colour.
+## Deploy
+
+See **[DEPLOY.md](DEPLOY.md)** — create the D1 database and R2 bucket, set the
+`SESSION_SECRET`, seed, `wrangler deploy`, then point the domain at the Worker.
+
+## Notes
+
+- Design palette/motif: *eastern white cedar* (arborvitae). Type pairs **Libre Franklin**
+  (display) with **Inter** (body). Accessible by default (skip link, focus rings,
+  `prefers-reduced-motion`).
+- **Patient intake is Personal Health Information** — stored access-controlled in D1,
+  visible only to signed-in staff. Have the field list + privacy notice reviewed for
+  PHIPA/PIPEDA before go-live.

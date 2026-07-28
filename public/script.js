@@ -1,4 +1,4 @@
-/* Cedar Health — light progressive enhancement */
+/* Cedar Health — light progressive enhancement (site-wide) */
 (function () {
   "use strict";
 
@@ -29,43 +29,5 @@
     reveals.forEach(function (el) { io.observe(el); });
   } else {
     reveals.forEach(function (el) { el.classList.add("in"); });
-  }
-
-  /* -------------------------------------------------------
-     Registration form.
-     Default (no backend): opens the visitor's email client
-     with the details pre-filled — works on a plain static
-     deploy with zero setup.
-
-     To capture submissions server-side instead, point this at
-     a Cloudflare Pages Function (e.g. /api/register) or a form
-     service, and replace the mailto block below with a fetch().
-     ------------------------------------------------------- */
-  var CLINIC_EMAIL = "hello@cedarhealth.example"; // <-- replace with the real inbox
-
-  var form = document.getElementById("registerForm");
-  if (form) {
-    form.addEventListener("submit", function (ev) {
-      ev.preventDefault();
-      if (!form.checkValidity()) { form.reportValidity(); return; }
-
-      var data = new FormData(form);
-      var name = (data.get("name") || "").toString().trim();
-      var email = (data.get("email") || "").toString().trim();
-      var phone = (data.get("phone") || "").toString().trim();
-      var message = (data.get("message") || "").toString().trim();
-
-      var subject = "New patient registration — " + name;
-      var body =
-        "Name: " + name + "\n" +
-        "Email: " + email + "\n" +
-        "Phone: " + phone + "\n\n" +
-        (message ? "Notes:\n" + message + "\n" : "");
-
-      window.location.href =
-        "mailto:" + CLINIC_EMAIL +
-        "?subject=" + encodeURIComponent(subject) +
-        "&body=" + encodeURIComponent(body);
-    });
   }
 })();

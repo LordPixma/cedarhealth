@@ -1,0 +1,216 @@
+// JSON API. Public: GET /api/content, POST /api/intake.
+// Authenticated (clinic session): content writes, uploads, submissions, account.
+
+import { verifyPassword, hashPassword, createSession, verifySession } from "./lib/auth.js";
+import { CONTENT_SECTIONS, INTAKE_SCHEMA } from "./lib/defaults.js";
+import {
+  getAllContent, setContent,
+  getAdminByEmail, setAdminPassword,
+  addSubmission, listSubmissions, getSubmission, setSubmissionStatus, submissionCounts, allSubmissions
+} from "./lib/db.js";
+
+const COOKIE = "cedar_session";
+const json = (data, status = 200, headers = {}) =>
+  new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json", ...headers } });
+
+/* ---------------- session helpers ---------------- */
+function getCookie(request, name) {
+  const raw = request.headers.get("Cookie") || "";
+  for (const part of raw.split(/;\s*/)) {
+    const eq = part.indexOf("=");
+    if (eq > -1 && part.slice(0, eq) === name) return decodeURIComponent(part.slice(eq + 1));
+  }
+  return null;
+}
+function sessionCookie(token, url, maxAge) {
+  const secure = url.protocol === "https:" ? " Secure;" : "";
+  return `${COOKIE}=${encodeURIComponent(token)}; HttpOnly;${secure} SameSite=Lax; Path=/; Max-Age=${maxAge}`;
+}
+async function currentUser(request, env) {
+  const token = getCookie(request, COOKIE);
+  if (!token || !env.SESSION_SECRET) return null;
+  return verifySession(token, env.SESSION_SECRET);
+}
+
+/* ---------------- router ---------------- */
+export async function handleApi(request, env, url) {
+  const path = url.pathname.replace(/\/+$/, "") || "/api";
+  const method = request.method.toUpperCase();
+
+  try {
+    // ---- public ----
+    if (path === "/api/content" && method === "GET") {
+      return json({ content: await getAllContent(env) });
+    }
+    if (path === "/api/intake" && method === "POST") {
+      return handleIntake(request, env);
+    }
+    if (path === "/api/login" && method === "POST") {
+      return handleLogin(request, env, url);
+    }
+    if (path === "/api/logout" && method === "POST") {
+      return json({ ok: true }, 200, { "Set-Cookie": `${COOKIE}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0` });
+    }
+
+    // ---- everything below requires a session ----
+    const user = await currentUser(request, env);
+    if (path === "/api/me") {
+      return user ? json({ user: { email: user.email } }) : json({ user: null }, 401);
+    }
+    if (!user) return json({ error: "Not signed in." }, 401);
+
+    if (path.startsWith("/api/content/") && method === "PUT") {
+      const section = decodeURIComponent(path.slice("/api/content/".length));
+      if (!CONTENT_SECTIONS.includes(section)) return json({ error: "Unknown section." }, 400);
+      const body = await request.json().catch(() => null);
+      if (!body || typeof body !== "object") return json({ error: "Invalid body." }, 400);
+      await setContent(env, section, body);
+      return json({ ok: true });
+    }
+
+    if (path === "/api/upload" && method === "POST") {
+      return handleUpload(request, env);
+    }
+
+    if (path === "/api/submissions" && method === "GET") {
+      const status = url.searchParams.get("status") || null;
+      const [items, counts] = await Promise.all([
+        listSubmissions(env, { status, limit: 200 }),
+        submissionCounts(env)
+      ]);
+      return json({ items, counts });
+    }
+    if (path === "/api/submissions/export" && method === "GET") {
+      const status = url.searchParams.get("status") || null;
+      const rows = await allSubmissions(env, status);
+      const csv = buildCsv(rows);
+      const date = new Date().toISOString().slice(0, 10);
+      return new Response("﻿" + csv, {
+        headers: {
+          "Content-Type": "text/csv; charset=utf-8",
+          "Content-Disposition": `attachment; filename="cedar-health-patient-intake-${date}.csv"`
+        }
+      });
+    }
+    if (path.startsWith("/api/submissions/") && method === "GET") {
+      const id = parseInt(path.slice("/api/submissions/".length), 10);
+      const sub = await getSubmission(env, id);
+      return sub ? json({ submission: sub, schema: INTAKE_SCHEMA }) : json({ error: "Not found." }, 404);
+    }
+    if (path.startsWith("/api/submissions/") && method === "PATCH") {
+      const id = parseInt(path.slice("/api/submissions/".length), 10);
+      const body = await request.json().catch(() => ({}));
+      const status = ["new", "reviewed", "archived"].includes(body.status) ? body.status : null;
+      if (!status) return json({ error: "Invalid status." }, 400);
+      await setSubmissionStatus(env, id, status);
+      return json({ ok: true });
+    }
+
+    if (path === "/api/account/password" && method === "POST") {
+      return handlePasswordChange(request, env, user);
+    }
+
+    return json({ error: "Not found." }, 404);
+  } catch (err) {
+    return json({ error: "Server error." }, 500);
+  }
+}
+
+/* ---------------- handlers ---------------- */
+async function handleLogin(request, env, url) {
+  const body = await request.json().catch(() => ({}));
+  const email = String(body.email || "").trim().toLowerCase();
+  const password = String(body.password || "");
+  if (!email || !password) return json({ error: "Enter your email and password." }, 400);
+
+  const admin = await getAdminByEmail(env, email);
+  // Verify even when the admin is missing, to reduce timing differences.
+  const ok = admin ? await verifyPassword(password, admin.password_hash) : await verifyPassword(password, "pbkdf2$100000$x$y");
+  if (!admin || !ok) return json({ error: "Incorrect email or password." }, 401);
+
+  const token = await createSession({ sub: admin.id, email: admin.email }, env.SESSION_SECRET, 60 * 60 * 12);
+  return json({ ok: true, user: { email: admin.email } }, 200, { "Set-Cookie": sessionCookie(token, url, 60 * 60 * 12) });
+}
+
+async function handlePasswordChange(request, env, user) {
+  const body = await request.json().catch(() => ({}));
+  const current = String(body.current || "");
+  const next = String(body.next || "");
+  if (next.length < 8) return json({ error: "New password must be at least 8 characters." }, 400);
+  const admin = await getAdminByEmail(env, user.email);
+  if (!admin || !(await verifyPassword(current, admin.password_hash))) {
+    return json({ error: "Current password is incorrect." }, 401);
+  }
+  await setAdminPassword(env, user.email, await hashPassword(next));
+  return json({ ok: true });
+}
+
+async function handleUpload(request, env) {
+  const form = await request.formData().catch(() => null);
+  const file = form && form.get("file");
+  if (!file || typeof file === "string") return json({ error: "No file provided." }, 400);
+  if (file.size > 8 * 1024 * 1024) return json({ error: "Image must be under 8 MB." }, 400);
+  const type = file.type || "application/octet-stream";
+  if (!/^image\//.test(type)) return json({ error: "Please upload an image file." }, 400);
+
+  const ext = (file.name.split(".").pop() || "img").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 5);
+  const rand = crypto.getRandomValues(new Uint8Array(6));
+  const id = Array.from(rand).map((b) => b.toString(16).padStart(2, "0")).join("");
+  const key = `uploads/${Date.now()}-${id}.${ext || "img"}`;
+
+  await env.MEDIA.put(key, file.stream(), {
+    httpMetadata: { contentType: type, cacheControl: "public, max-age=31536000, immutable" }
+  });
+  return json({ ok: true, url: `/media/${key}` });
+}
+
+async function handleIntake(request, env) {
+  const body = await request.json().catch(() => null);
+  if (!body || typeof body !== "object") return json({ error: "Invalid submission." }, 400);
+
+  // Guard against oversized payloads.
+  const raw = JSON.stringify(body);
+  if (raw.length > 200_000) return json({ error: "Submission too large." }, 413);
+
+  // Required consents and signature.
+  const missing = [];
+  for (const f of ["consent_collection", "consent_contact", "consent_accuracy"]) {
+    if (!body[f]) missing.push(f);
+  }
+  if (!String(body.signature_name || "").trim()) missing.push("signature_name");
+  if (!String(body.legal_first_name || "").trim() || !String(body.legal_last_name || "").trim()) missing.push("name");
+  if (missing.length) return json({ error: "Please complete all required fields and consents." }, 400);
+
+  const name = `${String(body.legal_first_name).trim()} ${String(body.legal_last_name).trim()}`.trim();
+  await addSubmission(env, {
+    kind: "intake",
+    patient_name: name.slice(0, 200),
+    patient_email: String(body.email || "").slice(0, 200),
+    patient_phone: String(body.phone_mobile || body.phone_home || "").slice(0, 60),
+    data: body
+  });
+  return json({ ok: true });
+}
+
+/* ---------------- CSV export ---------------- */
+function csvCell(v) {
+  v = String(v == null ? "" : v);
+  return /[",\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+}
+function buildCsv(rows) {
+  const fields = INTAKE_SCHEMA.flatMap((s) => s.fields.filter((f) => f.type !== "note"));
+  const headers = ["ID", "Submitted", "Status", "Name", "Email", "Phone"].concat(fields.map((f) => f.label || f.name));
+  const lines = [headers.map(csvCell).join(",")];
+  for (const r of rows) {
+    const d = r.data || {};
+    const base = [r.id, new Date(r.created_at * 1000).toISOString(), r.status, r.patient_name || "", r.patient_email || "", r.patient_phone || ""];
+    const rest = fields.map((f) => {
+      let v = d[f.name];
+      if (f.type === "consent") return d[f.name] ? "Yes" : "";
+      if (Array.isArray(v)) v = v.join("; ");
+      return v == null ? "" : v;
+    });
+    lines.push(base.concat(rest).map(csvCell).join(","));
+  }
+  return lines.join("\r\n");
+}

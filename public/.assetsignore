@@ -1,0 +1,3 @@
+# Files here are NOT served as static assets.
+*.md
+.gitignore

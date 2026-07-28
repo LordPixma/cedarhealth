@@ -1,3 +1,7 @@
 .DS_Store
 node_modules/
 .wrangler/
+.dev.vars
+.dev.vars.*
+# Generated at seed time (contains the seeded admin password hash)
+migrations/0002_seed.sql

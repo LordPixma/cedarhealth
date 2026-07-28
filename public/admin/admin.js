@@ -1,0 +1,424 @@
+/* Cedar Health — website editor (admin SPA). Plain JS, no build step. */
+(function () {
+  "use strict";
+
+  var state = { content: null, user: null, active: "hero", subStatus: "new", counts: null };
+
+  /* ---------------- tiny helpers ---------------- */
+  function $(sel, root) { return (root || document).querySelector(sel); }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function clone(o) { return JSON.parse(JSON.stringify(o == null ? null : o)); }
+  function getPath(o, p) { return p.split(".").reduce(function (a, k) { return a == null ? a : a[k]; }, o); }
+  function setPath(o, p, v) { var ks = p.split("."); var last = ks.pop(); var t = ks.reduce(function (a, k) { return a[k]; }, o); t[last] = v; }
+
+  function api(method, url, body, isForm) {
+    var opts = { method: method, headers: {} };
+    if (body !== undefined) {
+      if (isForm) { opts.body = body; }
+      else { opts.headers["Content-Type"] = "application/json"; opts.body = JSON.stringify(body); }
+    }
+    return fetch(url, opts).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        if (!r.ok) throw new Error(j.error || "Request failed."); return j;
+      });
+    });
+  }
+
+  var toastT;
+  function toast(msg, isErr) {
+    var t = $("#toast"); t.textContent = msg; t.className = "toast show" + (isErr ? " err" : "");
+    clearTimeout(toastT); toastT = setTimeout(function () { t.className = "toast"; }, 2600);
+  }
+
+  /* ---------------- auth ---------------- */
+  function init() {
+    api("GET", "/api/me").then(function (j) { state.user = j.user; showApp(); })
+      .catch(function () { showLogin(); });
+  }
+  function showLogin() { $("#login").classList.remove("hidden"); $("#app").classList.add("hidden"); }
+
+  $("#loginForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var btn = $("#loginBtn"); var err = $("#loginErr"); err.hidden = true;
+    btn.disabled = true; btn.textContent = "Signing in…";
+    api("POST", "/api/login", { email: $("#email").value, password: $("#password").value })
+      .then(function (j) { state.user = j.user; showApp(); })
+      .catch(function (e) { err.textContent = e.message; err.hidden = false; })
+      .then(function () { btn.disabled = false; btn.textContent = "Sign in"; });
+  });
+
+  $("#signout").addEventListener("click", function (e) {
+    e.preventDefault();
+    api("POST", "/api/logout").then(function () { location.reload(); });
+  });
+
+  function showApp() {
+    $("#login").classList.add("hidden"); $("#app").classList.remove("hidden");
+    $("#whoami").textContent = state.user ? state.user.email : "";
+    Promise.all([
+      api("GET", "/api/content"),
+      api("GET", "/api/submissions?status=new").catch(function () { return { counts: null }; })
+    ]).then(function (res) {
+      state.content = res[0].content;
+      state.counts = res[1].counts;
+      renderNav(); openSection(state.active);
+    });
+  }
+
+  /* ---------------- navigation ---------------- */
+  var NAV = [
+    { id: "hero", label: "Homepage hero" },
+    { id: "services", label: "Services" },
+    { id: "doctors", label: "Doctors" },
+    { id: "benefits", label: "Why families choose us" },
+    { id: "steps", label: "How it works" },
+    { id: "strip", label: "“At a glance” band" },
+    { id: "contact", label: "Hours & contact" },
+    { id: "brand", label: "Logo & clinic name" },
+    { id: "seo", label: "Search / SEO" },
+    { id: "footer", label: "Footer" },
+    { sep: true },
+    { id: "submissions", label: "Patient intake" },
+    { id: "account", label: "Account" }
+  ];
+
+  function renderNav() {
+    var html = NAV.map(function (n) {
+      if (n.sep) return '<div class="sidebar__sep"></div>';
+      var badge = "";
+      if (n.id === "submissions" && state.counts && state.counts.new) badge = '<span class="badge">' + state.counts.new + "</span>";
+      return '<button class="navlink' + (n.id === state.active ? " active" : "") + '" data-nav="' + n.id + '">' +
+        "<span>" + esc(n.label) + "</span>" + badge + "</button>";
+    }).join("");
+    $("#sidebar").innerHTML = html;
+    Array.prototype.forEach.call(document.querySelectorAll("[data-nav]"), function (b) {
+      b.addEventListener("click", function () { openSection(b.getAttribute("data-nav")); });
+    });
+  }
+
+  function openSection(id) {
+    state.active = id; renderNav();
+    if (id === "submissions") return renderSubmissions();
+    if (id === "account") return renderAccount();
+    renderEditor(id);
+  }
+
+  /* ---------------- editor definitions ---------------- */
+  var T = function (k, label, type, help) { return { k: k, label: label, type: type || "text", help: help }; };
+  var EDITORS = {
+    hero: { title: "Homepage hero", desc: "The top of your homepage — the first thing visitors see.", fields: [
+      T("pill", "Green banner text", "text", "The little rounded badge, e.g. “Now accepting new patients”."),
+      T("eyebrow", "Small label above the headline", "text"),
+      T("heading", "Headline", "text"),
+      T("emphasis", "Word to highlight in green", "text", "Type one word from the headline; it turns green."),
+      T("lede", "Intro paragraph", "textarea"),
+      T("photoUrl", "Background photo", "image"),
+      T("ctaPrimary", "Main button label", "text"),
+      T("ctaSecondary", "Second button label", "text"),
+      T("trust", "Checkmarked points", "tags")
+    ]},
+    services: { title: "Services", desc: "The “What we do” cards.", fields: [
+      T("eyebrow", "Small label", "text"), T("title", "Section heading", "text"), T("body", "Intro line", "textarea"),
+      { k: "items", label: "Service cards", type: "list", item: [T("title", "Title"), T("body", "Description", "textarea")] }
+    ]},
+    doctors: { title: "Doctors", desc: "Your physicians.", fields: [
+      T("eyebrow", "Small label", "text"), T("title", "Section heading", "text"), T("body", "Intro line", "textarea"),
+      { k: "items", label: "Doctors", type: "list", item: [T("name", "Name"), T("role", "Role"), T("bio", "Short bio", "textarea"), T("photoUrl", "Photo", "image")] }
+    ]},
+    benefits: { title: "Why families choose us", desc: "The dark green highlights band.", fields: [
+      T("eyebrow", "Small label", "text"), T("title", "Section heading", "text"),
+      { k: "items", label: "Points", type: "list", item: [T("title", "Title"), T("body", "Description", "textarea")] }
+    ]},
+    steps: { title: "How it works", desc: "The numbered “what to expect” steps.", fields: [
+      T("eyebrow", "Small label", "text"), T("title", "Section heading", "text"), T("body", "Intro line", "textarea"),
+      { k: "items", label: "Steps", type: "list", item: [T("title", "Title"), T("body", "Description", "textarea")] }
+    ]},
+    strip: { title: "“At a glance” band", desc: "The four quick facts under the hero.", arrayOf: [T("k", "Big word"), T("v", "Small line under it")] },
+    contact: { title: "Hours & contact", desc: "Address, phone, email and opening hours.", fields: [
+      T("eyebrow", "Small label", "text"), T("title", "Section heading", "text"), T("body", "Intro line", "textarea"),
+      T("address", "Clinic address", "textarea"), T("phone", "Phone number", "text"), T("email", "Email", "text"),
+      { k: "hours", label: "Opening hours", type: "rows", item: [T("d", "Day(s)"), T("t", "Hours")] }
+    ]},
+    brand: { title: "Logo & clinic name", desc: "Your name and logo across the site.", fields: [
+      T("name", "Clinic name", "text"), T("logoUrl", "Logo image", "image")
+    ]},
+    seo: { title: "Search / SEO", desc: "How your site appears in Google and when shared.", fields: [
+      T("title", "Page title", "text"), T("description", "Description", "textarea")
+    ]},
+    footer: { title: "Footer", desc: "The bottom of every page.", fields: [
+      T("tagline", "Tagline", "textarea"), T("note", "Small note (right side)", "text")
+    ]}
+  };
+
+  var draft = null;
+
+  function renderEditor(id) {
+    var ed = EDITORS[id];
+    draft = clone(state.content[id]);
+    var body = ed.arrayOf ? arrayEditor(ed) : ed.fields.map(function (f) { return fieldRow(f, f.k); }).join("");
+    $("#main").innerHTML =
+      '<div class="page-head"><h1>' + esc(ed.title) + "</h1><p>" + esc(ed.desc || "") + "</p></div>" +
+      '<div class="card"><div class="fields">' + body + "</div></div>" +
+      '<div class="save-bar"><button class="btn" id="saveBtn">Save changes</button>' +
+      '<button class="btn btn--ghost" id="resetBtn">Undo</button><span class="saved hidden" id="savedMsg">✓ Saved</span></div>';
+    bind();
+    $("#saveBtn").addEventListener("click", function () { save(id); });
+    $("#resetBtn").addEventListener("click", function () { renderEditor(id); });
+  }
+
+  /* field renderers (return HTML with data-bind / data-act) */
+  function fieldRow(f, path) {
+    if (f.type === "list") return listField(f, path);
+    if (f.type === "rows") return rowsField(f, path);
+    if (f.type === "tags") return tagsField(f, path);
+    if (f.type === "image") return imageField(f, path);
+    var val = esc(getPath(draft, path));
+    var input = f.type === "textarea"
+      ? '<textarea data-bind="' + path + '">' + val + "</textarea>"
+      : '<input type="text" data-bind="' + path + '" value="' + val + '" />';
+    return '<div class="f"><label>' + esc(f.label) + "</label>" + input + help(f) + "</div>";
+  }
+  function help(f) { return f.help ? '<div class="help">' + esc(f.help) + "</div>" : ""; }
+
+  function imageField(f, path) {
+    var url = getPath(draft, path) || "";
+    var thumb = url ? ' style="background-image:url(' + esc(url) + ')"' : "";
+    return '<div class="f"><label>' + esc(f.label) + "</label>" +
+      '<div class="imgfield">' +
+      '<div class="imgfield__thumb"' + thumb + ">" + (url ? "" : "No image") + "</div>" +
+      '<button type="button" class="btn btn--ghost btn--sm" data-act="upload" data-path="' + path + '">Upload image</button>' +
+      (url ? '<button type="button" class="btn btn--danger btn--sm" data-act="clearimg" data-path="' + path + '">Remove</button>' : "") +
+      '<input type="file" accept="image/*" data-file="' + path + '" />' +
+      "</div>" + help(f) + "</div>";
+  }
+
+  function tagsField(f, path) {
+    var arr = getPath(draft, path) || [];
+    var rows = arr.map(function (t, i) {
+      return '<div class="tag-row"><input type="text" data-bind="' + path + "." + i + '" value="' + esc(t) + '" />' +
+        '<button type="button" class="iconbtn" data-act="del" data-path="' + path + '" data-i="' + i + '">✕</button></div>';
+    }).join("");
+    return '<div class="f"><label>' + esc(f.label) + "</label><div class=\"tags\">" + rows +
+      '<button type="button" class="btn btn--ghost btn--sm" data-act="add" data-path="' + path + '" data-kind="tag" style="align-self:flex-start">+ Add</button></div>' + help(f) + "</div>";
+  }
+
+  function rowsField(f, path) {
+    var arr = getPath(draft, path) || [];
+    var rows = arr.map(function (row, i) {
+      var cells = f.item.map(function (sf) {
+        return '<input type="text" placeholder="' + esc(sf.label) + '" data-bind="' + path + "." + i + "." + sf.k + '" value="' + esc(row[sf.k]) + '" />';
+      }).join("");
+      return '<div class="tag-row">' + cells + '<button type="button" class="iconbtn" data-act="del" data-path="' + path + '" data-i="' + i + '">✕</button></div>';
+    }).join("");
+    return '<div class="f"><label>' + esc(f.label) + '</label><div class="tags">' + rows +
+      '<button type="button" class="btn btn--ghost btn--sm" data-act="add" data-path="' + path + '" data-kind="row" style="align-self:flex-start">+ Add row</button></div>' + help(f) + "</div>";
+  }
+
+  function listField(f, path) {
+    var arr = getPath(draft, path) || [];
+    var items = arr.map(function (item, i) { return itemCard(f, path, i, arr.length); }).join("");
+    return '<div class="f"><label>' + esc(f.label) + "</label>" + items +
+      '<button type="button" class="btn btn--ghost btn--sm" data-act="add" data-path="' + path + '" data-kind="item">+ Add ' + esc(singular(f.label)) + "</button></div>";
+  }
+  function itemCard(f, path, i, n) {
+    var sub = f.item.map(function (sf) { return fieldRow(sf, path + "." + i + "." + sf.k); }).join("");
+    return '<div class="item"><div class="item__bar"><span class="item__title">#' + (i + 1) + "</span>" +
+      '<span class="spacer"></span>' +
+      '<button type="button" class="iconbtn" data-act="up" data-path="' + path + '" data-i="' + i + '"' + (i === 0 ? " disabled" : "") + ">↑</button>" +
+      '<button type="button" class="iconbtn" data-act="down" data-path="' + path + '" data-i="' + i + '"' + (i === n - 1 ? " disabled" : "") + ">↓</button>" +
+      '<button type="button" class="iconbtn" data-act="del" data-path="' + path + '" data-i="' + i + '">✕</button></div>' +
+      '<div class="fields">' + sub + "</div></div>";
+  }
+  function singular(s) { return s.replace(/s$/i, "").toLowerCase(); }
+
+  function arrayEditor(ed) {
+    // whole section is an array (e.g. strip). Wrap it as if a list field on the root.
+    var f = { item: ed.arrayOf, label: ed.title };
+    var arr = draft || [];
+    var items = arr.map(function (item, i) { return itemCard(f, "__root", i, arr.length); }).join("");
+    return '<div class="f">' + items +
+      '<button type="button" class="btn btn--ghost btn--sm" data-act="add" data-path="__root" data-kind="rootitem">+ Add</button></div>';
+  }
+
+  /* bind inputs + action buttons to the draft */
+  function bind() {
+    Array.prototype.forEach.call(document.querySelectorAll("[data-bind]"), function (inp) {
+      inp.addEventListener("input", function () {
+        var p = inp.getAttribute("data-bind");
+        if (p.indexOf("__root") === 0) setPath({ __root: draft }, p, inp.value);
+        else setPath(draft, p, inp.value);
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-act]"), function (btn) {
+      btn.addEventListener("click", function () { action(btn); });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-file]"), function (inp) {
+      inp.addEventListener("change", function () { doUpload(inp); });
+    });
+  }
+
+  function refArray(path) {
+    // returns the array referenced by path (handles __root)
+    if (path === "__root") return draft;
+    return getPath(draft, path);
+  }
+
+  function action(btn) {
+    var act = btn.getAttribute("data-act");
+    var path = btn.getAttribute("data-path");
+    var i = parseInt(btn.getAttribute("data-i"), 10);
+    var arr = refArray(path);
+    if (act === "upload") { document.querySelector('[data-file="' + path + '"]').click(); return; }
+    if (act === "clearimg") { setPath(draft, path, ""); return rerender(); }
+    if (act === "del") { arr.splice(i, 1); return rerender(); }
+    if (act === "up") { var t = arr[i - 1]; arr[i - 1] = arr[i]; arr[i] = t; return rerender(); }
+    if (act === "down") { var u = arr[i + 1]; arr[i + 1] = arr[i]; arr[i] = u; return rerender(); }
+    if (act === "add") {
+      var kind = btn.getAttribute("data-kind");
+      if (kind === "tag") arr.push("");
+      else if (kind === "row") arr.push(blank(EDITORS[state.active].fields.filter(function (f) { return f.k === path; })[0].item));
+      else if (kind === "rootitem") draft.push(blank(EDITORS[state.active].arrayOf));
+      else { // item in a list field
+        var fld = findListField(EDITORS[state.active], path);
+        arr.push(blank(fld.item, fld));
+      }
+      return rerender();
+    }
+  }
+  function findListField(ed, path) {
+    var fields = ed.fields || [];
+    for (var j = 0; j < fields.length; j++) if (fields[j].k === path) return fields[j];
+    return null;
+  }
+  function blank(subfields, fld) {
+    var o = {};
+    subfields.forEach(function (sf) { o[sf.k] = sf.type === "image" ? "" : ""; });
+    // preserve an icon default for services/benefits so SSR keeps rendering an icon
+    if (fld && fld.k === "items" && state.active === "services") o.icon = "heart";
+    if (fld && fld.k === "items" && state.active === "benefits") o.icon = "clock";
+    return o;
+  }
+
+  function rerender() {
+    // re-render the current editor from the mutated draft without touching state.content
+    var id = state.active, ed = EDITORS[id];
+    var saved = draft;
+    var body = ed.arrayOf ? arrayEditor(ed) : ed.fields.map(function (f) { return fieldRow(f, f.k); }).join("");
+    $(".card .fields") ? ($(".card").querySelector(".fields").innerHTML = body) : null;
+    // simplest: rebuild whole card region
+    var card = document.querySelector(".card");
+    if (card) card.innerHTML = '<div class="fields">' + body + "</div>";
+    draft = saved;
+    bind();
+  }
+
+  function doUpload(inp) {
+    var path = inp.getAttribute("data-file");
+    var file = inp.files && inp.files[0];
+    if (!file) return;
+    toast("Uploading image…");
+    var fd = new FormData(); fd.append("file", file);
+    api("POST", "/api/upload", fd, true).then(function (j) {
+      setPath(draft, path, j.url); rerender(); toast("Image uploaded");
+    }).catch(function (e) { toast(e.message, true); });
+  }
+
+  function save(id) {
+    var btn = $("#saveBtn"); btn.disabled = true; btn.textContent = "Saving…";
+    api("PUT", "/api/content/" + id, draft).then(function () {
+      state.content[id] = clone(draft);
+      $("#savedMsg").classList.remove("hidden");
+      toast("Saved — your website is updated");
+      setTimeout(function () { $("#savedMsg") && $("#savedMsg").classList.add("hidden"); }, 2500);
+    }).catch(function (e) { toast(e.message, true); })
+      .then(function () { btn.disabled = false; btn.textContent = "Save changes"; });
+  }
+
+  /* ---------------- submissions ---------------- */
+  function renderSubmissions() {
+    $("#main").innerHTML =
+      '<div class="page-head" style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap">' +
+      '<div><h1>Patient intake</h1><p>Forms submitted by people registering as patients. This is private information — only signed-in staff can see it.</p></div>' +
+      '<a class="btn btn--ghost btn--sm" href="/api/submissions/export" download>⬇ Export all (CSV)</a>' +
+      '</div><div id="subArea">Loading…</div>';
+    loadSubs();
+  }
+  function loadSubs() {
+    api("GET", "/api/submissions?status=" + (state.subStatus === "all" ? "" : state.subStatus)).then(function (j) {
+      state.counts = j.counts; renderNav();
+      var tabs = ["new", "reviewed", "archived", "all"].map(function (s) {
+        var n = s === "all" ? j.counts.total : j.counts[s];
+        return '<button class="sub-tab' + (s === state.subStatus ? " active" : "") + '" data-sub="' + s + '">' +
+          s.charAt(0).toUpperCase() + s.slice(1) + " (" + (n || 0) + ")</button>";
+      }).join("");
+      var list = j.items.length ? j.items.map(subRow).join("") : '<div class="empty">No submissions here yet.</div>';
+      $("#subArea").innerHTML = '<div class="sub-tabs">' + tabs + '</div><div class="sub-list">' + list + "</div>";
+      Array.prototype.forEach.call(document.querySelectorAll("[data-sub]"), function (b) {
+        b.addEventListener("click", function () { state.subStatus = b.getAttribute("data-sub"); loadSubs(); });
+      });
+      Array.prototype.forEach.call(document.querySelectorAll("[data-open]"), function (b) {
+        b.addEventListener("click", function () { openSub(b.getAttribute("data-open")); });
+      });
+    });
+  }
+  function fmtDate(ts) { try { return new Date(ts * 1000).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }); } catch (e) { return ""; } }
+  function subRow(s) {
+    return '<button class="sub-item" data-open="' + s.id + '">' +
+      '<div><div class="sub-item__name">' + esc(s.patient_name || "(no name)") + "</div>" +
+      '<div class="sub-item__meta">' + esc(s.patient_email || "") + " · " + fmtDate(s.created_at) + "</div></div>" +
+      '<span class="sub-item__spacer"></span><span class="pill-status ' + s.status + '">' + s.status + "</span></button>";
+  }
+  function openSub(id) {
+    api("GET", "/api/submissions/" + id).then(function (j) {
+      var s = j.submission, schema = j.schema, d = s.data || {};
+      var groups = schema.map(function (sec) {
+        var rows = sec.fields.filter(function (f) { return f.type !== "note"; }).map(function (f) {
+          var v = d[f.name];
+          if (Array.isArray(v)) v = v.join(", ");
+          if (f.type === "consent") v = d[f.name] ? "Yes" : "—";
+          if (v == null || v === "") v = "—";
+          return "<dt>" + esc(f.label || f.name) + "</dt><dd>" + esc(v) + "</dd>";
+        }).join("");
+        return "<h3>" + esc(sec.title) + "</h3><dl>" + rows + "</dl>";
+      }).join("");
+      $("#main").innerHTML =
+        '<div class="detail">' +
+        '<button class="btn btn--ghost btn--sm detail__back" id="backBtn">← Back to list</button>' +
+        '<div class="page-head"><h1>' + esc(s.patient_name || "Submission") + '</h1><p>Received ' + fmtDate(s.created_at) + " · status: " + esc(s.status) + "</p></div>" +
+        '<div style="margin-bottom:1.2rem;display:flex;gap:.6rem;flex-wrap:wrap">' +
+        '<button class="btn btn--sm" data-st="reviewed">Mark reviewed</button>' +
+        '<button class="btn btn--ghost btn--sm" data-st="archived">Archive</button>' +
+        '<button class="btn btn--ghost btn--sm" data-st="new">Mark new</button></div>' +
+        '<div class="card">' + groups + "</div></div>";
+      $("#backBtn").addEventListener("click", renderSubmissions);
+      Array.prototype.forEach.call(document.querySelectorAll("[data-st]"), function (b) {
+        b.addEventListener("click", function () {
+          api("PATCH", "/api/submissions/" + id, { status: b.getAttribute("data-st") })
+            .then(function () { toast("Updated"); renderSubmissions(); });
+        });
+      });
+    });
+  }
+
+  /* ---------------- account ---------------- */
+  function renderAccount() {
+    $("#main").innerHTML =
+      '<div class="page-head"><h1>Account</h1><p>Signed in as ' + esc(state.user.email) + ".</p></div>" +
+      '<div class="card" style="max-width:460px"><div class="fields">' +
+      '<div class="f"><label>Current password</label><input type="password" id="pwCur" /></div>' +
+      '<div class="f"><label>New password</label><input type="password" id="pwNew" /><div class="help">At least 8 characters.</div></div>' +
+      '<div class="f"><label>Confirm new password</label><input type="password" id="pwNew2" /></div>' +
+      '</div><div style="margin-top:1.1rem"><button class="btn" id="pwBtn">Change password</button></div></div>';
+    $("#pwBtn").addEventListener("click", function () {
+      var cur = $("#pwCur").value, n1 = $("#pwNew").value, n2 = $("#pwNew2").value;
+      if (n1 !== n2) return toast("New passwords don't match.", true);
+      var btn = $("#pwBtn"); btn.disabled = true;
+      api("POST", "/api/account/password", { current: cur, next: n1 })
+        .then(function () { toast("Password changed"); $("#pwCur").value = $("#pwNew").value = $("#pwNew2").value = ""; })
+        .catch(function (e) { toast(e.message, true); })
+        .then(function () { btn.disabled = false; });
+    });
+  }
+
+  init();
+})();
