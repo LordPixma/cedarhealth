@@ -40,10 +40,12 @@ function cic(icon) {
 /* ------------------------------------------------------------ brand mark */
 function brandMark(content) {
   const b = content.brand || {};
-  if (b.logoUrl) {
-    return `<img class="brand__logo" src="${attr(b.logoUrl)}" alt="${attr(b.name || "Cedar Health")}" />`;
-  }
-  return `<svg viewBox="0 0 32 32" fill="none" aria-hidden="true">${SPRIG}</svg><b>${esc(b.name || "Cedar Health")}</b>`;
+  const name = esc(b.name || "Cedar Health");
+  const icon = b.logoUrl
+    ? `<img class="brand__logo" src="${attr(b.logoUrl)}" alt="" />`
+    : `<svg viewBox="0 0 32 32" fill="none" aria-hidden="true">${SPRIG}</svg>`;
+  // Always render the name as text so it stays legible regardless of the logo image.
+  return `${icon}<b>${name}</b>`;
 }
 
 /* --------------------------------------------------------- header/footer */

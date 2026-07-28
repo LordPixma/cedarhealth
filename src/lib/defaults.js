@@ -4,8 +4,9 @@
 export const DEFAULT_CONTENT = {
   brand: {
     name: "Cedar Health",
-    // Empty -> the built-in cedar sprig mark is used. Set to a /media/... URL via the CMS.
-    logoUrl: ""
+    // The tree mark (cropped from the clinic's logo). The name renders as text
+    // beside it. Replace via the CMS (Logo & clinic name) with a square icon/mark.
+    logoUrl: "/images/logo-mark.png"
   },
 
   seo: {

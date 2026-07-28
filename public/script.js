@@ -30,4 +30,10 @@
   } else {
     reveals.forEach(function (el) { el.classList.add("in"); });
   }
+
+  // Safety net: never leave content hidden (covers no-scroll page captures and
+  // any IntersectionObserver edge cases). Real scrolling still animates earlier.
+  setTimeout(function () {
+    reveals.forEach(function (el) { el.classList.add("in"); });
+  }, 1500);
 })();

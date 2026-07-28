@@ -477,8 +477,9 @@ p { margin: 0; }
 /* =========================================================
    Brand logo image (when a logo is uploaded via the CMS)
    ========================================================= */
-.brand__logo { height: 38px; width: auto; display: block; }
-.site-footer .brand__logo { height: 40px; }
+.brand__logo { height: 42px; width: auto; display: block; border-radius: 9px; }
+.site-footer .brand__logo { height: 46px; }
+@media (max-width: 520px) { .brand__logo { height: 36px; } }
 
 /* =========================================================
    Patient intake page

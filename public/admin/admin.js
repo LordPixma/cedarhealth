@@ -140,7 +140,8 @@
       { k: "hours", label: "Opening hours", type: "rows", item: [T("d", "Day(s)"), T("t", "Hours")] }
     ]},
     brand: { title: "Logo & clinic name", desc: "Your name and logo across the site.", fields: [
-      T("name", "Clinic name", "text"), T("logoUrl", "Logo image", "image")
+      T("name", "Clinic name", "text"),
+      T("logoUrl", "Logo icon", "image", "A square icon/mark works best — the clinic name is shown as text beside it.")
     ]},
     seo: { title: "Search / SEO", desc: "How your site appears in Google and when shared.", fields: [
       T("title", "Page title", "text"), T("description", "Description", "textarea")
