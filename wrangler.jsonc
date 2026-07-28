@@ -17,8 +17,7 @@
     {
       "binding": "DB",
       "database_name": "cedarhealth",
-      // Replaced with the real id after `wrangler d1 create cedarhealth` (see DEPLOY.md).
-      "database_id": "PLACEHOLDER_DB_ID"
+      "database_id": "9facab57-6aa8-4c5d-8a6c-f4751ed8d1c8"
     }
   ],
   "r2_buckets": [
