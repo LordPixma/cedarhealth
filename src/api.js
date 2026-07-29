@@ -251,13 +251,21 @@ async function handleIntake(request, env, ctx) {
     data: body
   });
   // Email a formatted copy to the clinic (best-effort — never blocks/fails the submission).
-  if (ctx && env.EMAIL && env.INTAKE_EMAIL_TO) {
+  if (ctx && env.EMAIL && intakeRecipients(env).length) {
     ctx.waitUntil(sendIntakeEmail(env, body, name).catch((e) => console.error("intake email failed:", e && e.message)));
   }
   return json({ ok: true });
 }
 
 /* ---------------- intake notification email ---------------- */
+// INTAKE_EMAIL_TO holds one or more clinic addresses, comma-separated.
+function intakeRecipients(env) {
+  return String(env.INTAKE_EMAIL_TO || "")
+    .split(/[,;\s]+/)
+    .map((s) => s.trim())
+    .filter((s) => s.includes("@"));
+}
+
 function formatIntakeEmail(data, name) {
   const textLines = ["A new patient registration was submitted through the website.", ""];
   const htmlSections = [];
@@ -287,11 +295,14 @@ function formatIntakeEmail(data, name) {
 }
 
 async function sendIntakeEmail(env, data, name) {
+  const to = intakeRecipients(env);
+  if (!to.length) return;
   const { subject, text, html } = formatIntakeEmail(data, name);
-  const domain = (env.INTAKE_EMAIL_TO.split("@")[1] || "").trim();
+  const domain = (to[0].split("@")[1] || "").trim();
   const from = (env.INTAKE_EMAIL_FROM || "noreply@" + domain).trim();
+  // Every recipient goes in `to` (max 50) — one send, one identical copy each.
   await env.EMAIL.send({
-    to: env.INTAKE_EMAIL_TO,
+    to,
     from: { email: from, name: "Cedar Health Website" },
     subject,
     text,
