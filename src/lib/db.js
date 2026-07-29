@@ -63,6 +63,14 @@ export async function deleteAdminById(env, id) {
   await env.DB.prepare("DELETE FROM admins WHERE id = ?").bind(id).run();
 }
 
+// Reset a staff member's password by id. Returns rows changed (0 = no such admin).
+export async function setAdminPasswordById(env, id, passwordHash) {
+  const res = await env.DB.prepare(
+    "UPDATE admins SET password_hash = ?, updated_at = unixepoch() WHERE id = ?"
+  ).bind(passwordHash, id).run();
+  return (res.meta && res.meta.changes) || 0;
+}
+
 /* ---------------- submissions (patient intake / PHI) ---------------- */
 
 export async function addSubmission(env, { kind = "intake", patient_name, patient_email, patient_phone, data }) {

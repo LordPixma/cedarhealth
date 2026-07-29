@@ -5,7 +5,7 @@ import { verifyPassword, hashPassword, createSession, verifySession } from "./li
 import { CONTENT_SECTIONS, INTAKE_SCHEMA } from "./lib/defaults.js";
 import {
   getAllContent, setContent,
-  getAdminByEmail, setAdminPassword, createAdmin, listAdmins, deleteAdminById, countAdmins,
+  getAdminByEmail, setAdminPassword, createAdmin, listAdmins, deleteAdminById, countAdmins, setAdminPasswordById,
   addSubmission, listSubmissions, getSubmission, setSubmissionStatus, submissionCounts, allSubmissions,
   deleteSubmission, getSettings, logAccess, listAccessLog
 } from "./lib/db.js";
@@ -151,6 +151,15 @@ export async function handleApi(request, env, url) {
       if (password.length < 8) return json({ error: "Password must be at least 8 characters." }, 400);
       if (await getAdminByEmail(env, email)) return json({ error: "That email already has a login." }, 409);
       await createAdmin(env, email, await hashPassword(password));
+      return json({ ok: true });
+    }
+    if (/^\/api\/admins\/\d+\/password$/.test(path) && method === "POST") {
+      const id = parseInt(path.split("/")[3], 10);
+      const body = await request.json().catch(() => ({}));
+      const password = String(body.password || "");
+      if (password.length < 8) return json({ error: "Password must be at least 8 characters." }, 400);
+      const changed = await setAdminPasswordById(env, id, await hashPassword(password));
+      if (!changed) return json({ error: "That login no longer exists." }, 404);
       return json({ ok: true });
     }
     if (path.startsWith("/api/admins/") && method === "DELETE") {

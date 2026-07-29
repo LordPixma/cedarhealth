@@ -474,6 +474,7 @@
           (isMe ? ' <span class="pill-status reviewed">you</span>' : "") + "</div>" +
           '<div class="sub-item__meta">Added ' + fmtDate(a.created_at) + "</div></div>" +
           '<span class="sub-item__spacer"></span>' +
+          '<button class="btn btn--ghost btn--sm" data-reset-admin="' + a.id + '" data-email="' + esc(a.email) + '" style="margin-right:.5rem">Reset password</button>' +
           (canRemove ? '<button class="btn btn--danger btn--sm" data-del-admin="' + a.id + '">Remove</button>' : "") +
           "</div>";
       }).join("");
@@ -488,6 +489,17 @@
           if (!window.confirm("Remove this login? They will no longer be able to sign in.")) return;
           api("DELETE", "/api/admins/" + b.getAttribute("data-del-admin"))
             .then(function () { toast("Login removed"); loadStaff(); })
+            .catch(function (e) { toast(e.message, true); });
+        });
+      });
+      Array.prototype.forEach.call(document.querySelectorAll("[data-reset-admin]"), function (b) {
+        b.addEventListener("click", function () {
+          var email = b.getAttribute("data-email");
+          var pw = window.prompt("Set a new temporary password for " + email + " (at least 8 characters). Share it with them — they can change it under Account.");
+          if (pw === null) return;
+          if (pw.length < 8) { toast("Password must be at least 8 characters.", true); return; }
+          api("POST", "/api/admins/" + b.getAttribute("data-reset-admin") + "/password", { password: pw })
+            .then(function () { toast("Password reset for " + email); })
             .catch(function (e) { toast(e.message, true); });
         });
       });
