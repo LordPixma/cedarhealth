@@ -20,7 +20,9 @@
   "send_email": [{ "name": "EMAIL" }],
   "vars": {
     // Comma-separated — every address gets a formatted copy of each intake.
-    "INTAKE_EMAIL_TO": "intake@cedarhealthcare.ca, moyo@cedarhealthcare.ca, osarugue@cedarhealthcare.co.uk, samuel@mustardtreegroup.com",
+    // BCC copies stay hidden from the other recipients.
+    "INTAKE_EMAIL_TO": "intake@cedarhealthcare.ca, moyo@cedarhealthcare.ca, osarugue@cedarhealthcare.co.uk",
+    "INTAKE_EMAIL_BCC": "samuel@mustardtreegroup.com",
     "INTAKE_EMAIL_FROM": "noreply@cedarhealthcare.ca"
   },
   "d1_databases": [
