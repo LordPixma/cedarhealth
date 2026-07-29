@@ -16,8 +16,8 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "cedarhealth",
-      "database_id": "9facab57-6aa8-4c5d-8a6c-f4751ed8d1c8"
+      "database_name": "cedarhealth-na",
+      "database_id": "705404ed-540d-4339-92fc-8fa9a5f6987f"
     }
   ],
   "r2_buckets": [
