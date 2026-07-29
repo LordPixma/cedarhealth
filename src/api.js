@@ -5,7 +5,7 @@ import { verifyPassword, hashPassword, createSession, verifySession } from "./li
 import { CONTENT_SECTIONS, INTAKE_SCHEMA } from "./lib/defaults.js";
 import {
   getAllContent, setContent,
-  getAdminByEmail, setAdminPassword,
+  getAdminByEmail, setAdminPassword, createAdmin, listAdmins, deleteAdminById, countAdmins,
   addSubmission, listSubmissions, getSubmission, setSubmissionStatus, submissionCounts, allSubmissions
 } from "./lib/db.js";
 
@@ -108,6 +108,28 @@ export async function handleApi(request, env, url) {
 
     if (path === "/api/account/password" && method === "POST") {
       return handlePasswordChange(request, env, user);
+    }
+
+    // ---- staff / admin logins ----
+    if (path === "/api/admins" && method === "GET") {
+      return json({ admins: await listAdmins(env), me: user.email });
+    }
+    if (path === "/api/admins" && method === "POST") {
+      const body = await request.json().catch(() => ({}));
+      const email = String(body.email || "").trim().toLowerCase();
+      const password = String(body.password || "");
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: "Enter a valid email address." }, 400);
+      if (password.length < 8) return json({ error: "Password must be at least 8 characters." }, 400);
+      if (await getAdminByEmail(env, email)) return json({ error: "That email already has a login." }, 409);
+      await createAdmin(env, email, await hashPassword(password));
+      return json({ ok: true });
+    }
+    if (path.startsWith("/api/admins/") && method === "DELETE") {
+      const id = parseInt(path.slice("/api/admins/".length), 10);
+      if (id === user.sub) return json({ error: "You can't remove the login you're signed in with." }, 400);
+      if ((await countAdmins(env)) <= 1) return json({ error: "At least one admin login must remain." }, 400);
+      await deleteAdminById(env, id);
+      return json({ ok: true });
     }
 
     return json({ error: "Not found." }, 404);

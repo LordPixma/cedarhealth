@@ -15,7 +15,7 @@ import { hashPassword } from "../src/lib/auth.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || "admin@cedarhealth.co").trim().toLowerCase();
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || "admin@cedarhealthcare.ca").trim().toLowerCase();
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "ChangeMe-Cedar2026!";
 
 const sqlStr = (s) => "'" + String(s).replace(/'/g, "''") + "'";

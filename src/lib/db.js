@@ -52,6 +52,17 @@ export async function createAdmin(env, email, passwordHash) {
   ).bind(String(email).trim().toLowerCase(), passwordHash).run();
 }
 
+export async function listAdmins(env) {
+  const { results } = await env.DB.prepare(
+    "SELECT id, email, created_at FROM admins ORDER BY created_at ASC"
+  ).all();
+  return results || [];
+}
+
+export async function deleteAdminById(env, id) {
+  await env.DB.prepare("DELETE FROM admins WHERE id = ?").bind(id).run();
+}
+
 /* ---------------- submissions (patient intake / PHI) ---------------- */
 
 export async function addSubmission(env, { kind = "intake", patient_name, patient_email, patient_phone, data }) {

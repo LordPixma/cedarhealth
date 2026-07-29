@@ -79,6 +79,7 @@
     { id: "footer", label: "Footer" },
     { sep: true },
     { id: "submissions", label: "Patient intake" },
+    { id: "staff", label: "Staff logins" },
     { id: "account", label: "Account" }
   ];
 
@@ -99,6 +100,7 @@
   function openSection(id) {
     state.active = id; renderNav();
     if (id === "submissions") return renderSubmissions();
+    if (id === "staff") return renderStaff();
     if (id === "account") return renderAccount();
     renderEditor(id);
   }
@@ -397,6 +399,49 @@
           api("PATCH", "/api/submissions/" + id, { status: b.getAttribute("data-st") })
             .then(function () { toast("Updated"); renderSubmissions(); });
         });
+      });
+    });
+  }
+
+  /* ---------------- staff logins ---------------- */
+  function renderStaff() {
+    $("#main").innerHTML =
+      '<div class="page-head"><h1>Staff logins</h1><p>People who can sign in here to edit the website and view patient intake. Everyone listed has full access.</p></div>' +
+      '<div id="staffArea">Loading…</div>';
+    loadStaff();
+  }
+  function loadStaff() {
+    api("GET", "/api/admins").then(function (j) {
+      var rows = j.admins.map(function (a) {
+        var isMe = a.email === j.me;
+        var canRemove = !isMe && j.admins.length > 1;
+        return '<div class="sub-item"><div><div class="sub-item__name">' + esc(a.email) +
+          (isMe ? ' <span class="pill-status reviewed">you</span>' : "") + "</div>" +
+          '<div class="sub-item__meta">Added ' + fmtDate(a.created_at) + "</div></div>" +
+          '<span class="sub-item__spacer"></span>' +
+          (canRemove ? '<button class="btn btn--danger btn--sm" data-del-admin="' + a.id + '">Remove</button>' : "") +
+          "</div>";
+      }).join("");
+      $("#staffArea").innerHTML =
+        '<div class="sub-list" style="margin-bottom:1.6rem">' + rows + "</div>" +
+        '<div class="card" style="max-width:480px"><h3 style="color:var(--cedar);font-size:1.15rem;margin-bottom:1rem">Add a staff login</h3><div class="fields">' +
+        '<div class="f"><label>Email</label><input type="email" id="naEmail" autocomplete="off" /></div>' +
+        '<div class="f"><label>Temporary password</label><input type="text" id="naPass" autocomplete="off" /><div class="help">At least 8 characters. Share it with them — they can change it later in Account.</div></div>' +
+        '</div><div style="margin-top:1.1rem"><button class="btn" id="naBtn">Add login</button></div></div>';
+      Array.prototype.forEach.call(document.querySelectorAll("[data-del-admin]"), function (b) {
+        b.addEventListener("click", function () {
+          if (!window.confirm("Remove this login? They will no longer be able to sign in.")) return;
+          api("DELETE", "/api/admins/" + b.getAttribute("data-del-admin"))
+            .then(function () { toast("Login removed"); loadStaff(); })
+            .catch(function (e) { toast(e.message, true); });
+        });
+      });
+      $("#naBtn").addEventListener("click", function () {
+        var btn = $("#naBtn"); btn.disabled = true;
+        api("POST", "/api/admins", { email: $("#naEmail").value, password: $("#naPass").value })
+          .then(function () { toast("Login added"); loadStaff(); })
+          .catch(function (e) { toast(e.message, true); })
+          .then(function () { btn.disabled = false; });
       });
     });
   }

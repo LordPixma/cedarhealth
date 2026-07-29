@@ -46,7 +46,7 @@ npm run db:local     # create + seed the local database (first run only)
 npm run dev          # http://localhost:8787   — editor at /admin
 ```
 
-Local admin login is printed by the seed step (default `admin@cedarhealth.co` /
+Local admin login is printed by the seed step (default `admin@cedarhealthcare.ca` /
 `ChangeMe-Cedar2026!` unless you set `ADMIN_EMAIL` / `ADMIN_PASSWORD`).
 
 ## Deploy

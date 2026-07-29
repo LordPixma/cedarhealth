@@ -42,7 +42,7 @@ Run from the repo root. You need `wrangler` logged in to the **correct account**
    Pick the clinic's admin email and a temporary password, then:
 
    ```bash
-   ADMIN_EMAIL="reception@cedarhealth.co" ADMIN_PASSWORD="a-good-temporary-password" npm run gen:seed
+   ADMIN_EMAIL="reception@cedarhealthcare.ca" ADMIN_PASSWORD="a-good-temporary-password" npm run gen:seed
    wrangler d1 execute cedarhealth --remote --file=./migrations/0001_init.sql
    wrangler d1 execute cedarhealth --remote --file=./migrations/0002_seed.sql
    ```
@@ -54,7 +54,7 @@ Run from the repo root. You need `wrangler` logged in to the **correct account**
    ```
 
 6. **Custom domain** — in the Cloudflare dashboard (Workers & Pages → cedarhealth →
-   Settings → Domains & Routes) add **cedarhealth.co** (and `www`). Or add a `routes`
+   Settings → Domains & Routes) add **cedarhealthcare.ca** (and `www`). Or add a `routes`
    entry to `wrangler.jsonc`.
 
 7. **First sign-in** — go to `https://<your-domain>/admin`, sign in with the admin

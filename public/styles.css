@@ -170,7 +170,8 @@ p { margin: 0; }
 }
 .nav a:not(.btn):hover { color: var(--cedar); }
 .nav a:not(.btn):hover::after { transform: scaleX(1); }
-.nav .btn { padding: .56rem 1.15rem; font-size: .9rem; }
+.nav .btn { padding: .56rem 1.15rem; font-size: .9rem; color: #fff; }
+.nav .btn:hover { color: #fff; }
 .nav-toggle { display: none; }
 
 @media (max-width: 860px) {
