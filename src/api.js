@@ -3,6 +3,7 @@
 
 import { verifyPassword, hashPassword, createSession, verifySession } from "./lib/auth.js";
 import { CONTENT_SECTIONS, INTAKE_SCHEMA } from "./lib/defaults.js";
+import { esc } from "./lib/html.js";
 import {
   getAllContent, setContent,
   getAdminByEmail, setAdminPassword, createAdmin, listAdmins, deleteAdminById, countAdmins, setAdminPasswordById,
@@ -34,7 +35,7 @@ async function currentUser(request, env) {
 }
 
 /* ---------------- router ---------------- */
-export async function handleApi(request, env, url) {
+export async function handleApi(request, env, url, ctx) {
   const path = url.pathname.replace(/\/+$/, "") || "/api";
   const method = request.method.toUpperCase();
 
@@ -44,7 +45,7 @@ export async function handleApi(request, env, url) {
       return json({ content: await getAllContent(env) });
     }
     if (path === "/api/intake" && method === "POST") {
-      return handleIntake(request, env);
+      return handleIntake(request, env, ctx);
     }
     if (path === "/api/login" && method === "POST") {
       return handleLogin(request, env, url);
@@ -224,7 +225,7 @@ async function handleUpload(request, env) {
   return json({ ok: true, url: `/media/${key}` });
 }
 
-async function handleIntake(request, env) {
+async function handleIntake(request, env, ctx) {
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== "object") return json({ error: "Invalid submission." }, 400);
 
@@ -249,7 +250,53 @@ async function handleIntake(request, env) {
     patient_phone: String(body.phone_mobile || body.phone_home || "").slice(0, 60),
     data: body
   });
+  // Email a formatted copy to the clinic (best-effort — never blocks/fails the submission).
+  if (ctx && env.EMAIL && env.INTAKE_EMAIL_TO) {
+    ctx.waitUntil(sendIntakeEmail(env, body, name).catch((e) => console.error("intake email failed:", e && e.message)));
+  }
   return json({ ok: true });
+}
+
+/* ---------------- intake notification email ---------------- */
+function formatIntakeEmail(data, name) {
+  const textLines = ["A new patient registration was submitted through the website.", ""];
+  const htmlSections = [];
+  for (const section of INTAKE_SCHEMA) {
+    textLines.push(section.title.toUpperCase());
+    const rows = [];
+    for (const f of section.fields) {
+      if (f.type === "note") continue;
+      let v = data[f.name];
+      if (f.type === "consent") v = data[f.name] ? "Yes" : "No";
+      else if (Array.isArray(v)) v = v.join(", ");
+      if (v == null || v === "") v = "—";
+      textLines.push("  " + (f.label || f.name) + ": " + v);
+      rows.push(`<tr><td style="padding:4px 14px 4px 0;color:#555;vertical-align:top">${esc(f.label || f.name)}</td><td style="padding:4px 0;color:#111">${esc(v)}</td></tr>`);
+    }
+    textLines.push("");
+    htmlSections.push(`<h3 style="color:#1b3a2a;margin:18px 0 4px;font-size:15px">${esc(section.title)}</h3><table style="border-collapse:collapse;font-size:14px">${rows.join("")}</table>`);
+  }
+  const html = `<div style="max-width:660px;margin:0 auto;font-family:Arial,Helvetica,sans-serif;color:#111">
+    <h2 style="color:#1b3a2a;margin:0 0 4px">New patient registration</h2>
+    <p style="color:#555;margin:0 0 8px">Submitted through the Cedar Health website.</p>
+    ${htmlSections.join("")}
+    <hr style="border:none;border-top:1px solid #ddd;margin:20px 0">
+    <p style="color:#888;font-size:12px">This message contains personal health information — please handle it securely. You can also view and manage submissions in the website admin.</p>
+  </div>`;
+  return { subject: `New patient registration — ${name}`, text: textLines.join("\n"), html };
+}
+
+async function sendIntakeEmail(env, data, name) {
+  const { subject, text, html } = formatIntakeEmail(data, name);
+  const domain = (env.INTAKE_EMAIL_TO.split("@")[1] || "").trim();
+  const from = (env.INTAKE_EMAIL_FROM || "noreply@" + domain).trim();
+  await env.EMAIL.send({
+    to: env.INTAKE_EMAIL_TO,
+    from: { email: from, name: "Cedar Health Website" },
+    subject,
+    text,
+    html
+  });
 }
 
 /* ---------------- CSV export ---------------- */

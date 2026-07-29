@@ -41,7 +41,7 @@ export default {
 
     // API
     if (path === "/api" || path.startsWith("/api/")) {
-      return handleApi(request, env, url);
+      return handleApi(request, env, url, ctx);
     }
 
     // R2-backed uploaded media

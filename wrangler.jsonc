@@ -15,6 +15,13 @@
   "observability": { "enabled": true },
   // Daily retention job (03:00 UTC) — purges intake submissions past their retention period.
   "triggers": { "crons": ["0 3 * * *"] },
+  // Email a formatted copy of each intake to the clinic. Requires the domain to be
+  // onboarded for Email Sending (Dashboard → Email Service → Email Sending → Onboard).
+  "send_email": [{ "name": "EMAIL" }],
+  "vars": {
+    "INTAKE_EMAIL_TO": "intake@cedarhealthcare.ca",
+    "INTAKE_EMAIL_FROM": "noreply@cedarhealthcare.ca"
+  },
   "d1_databases": [
     {
       "binding": "DB",
