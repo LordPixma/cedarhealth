@@ -110,6 +110,11 @@ export async function setSubmissionStatus(env, id, status) {
   await env.DB.prepare("UPDATE submissions SET status = ? WHERE id = ?").bind(status, id).run();
 }
 
+// Permanently remove a single submission (PHI disposal).
+export async function deleteSubmission(env, id) {
+  await env.DB.prepare("DELETE FROM submissions WHERE id = ?").bind(id).run();
+}
+
 export async function submissionCounts(env) {
   const { results } = await env.DB.prepare(
     "SELECT status, COUNT(*) AS n FROM submissions GROUP BY status"
@@ -117,4 +122,24 @@ export async function submissionCounts(env) {
   const counts = { new: 0, reviewed: 0, archived: 0, total: 0 };
   for (const r of results || []) { counts[r.status] = r.n; counts.total += r.n; }
   return counts;
+}
+
+/* ---------------- settings (retention, …) ---------------- */
+
+export async function getSettings(env) {
+  const defaults = { retentionDays: 0 }; // 0 = keep until manually deleted
+  try {
+    const row = await env.DB.prepare("SELECT data FROM content WHERE section = 'settings'").first();
+    if (row) return { ...defaults, ...JSON.parse(row.data) };
+  } catch { /* not set yet */ }
+  return defaults;
+}
+
+// Delete intake submissions older than `retentionDays`. Returns rows removed.
+export async function purgeOldSubmissions(env, retentionDays) {
+  const days = parseInt(retentionDays, 10);
+  if (!days || days <= 0) return 0;
+  const cutoff = Math.floor(Date.now() / 1000) - days * 86400;
+  const res = await env.DB.prepare("DELETE FROM submissions WHERE created_at < ?").bind(cutoff).run();
+  return (res.meta && res.meta.changes) || 0;
 }

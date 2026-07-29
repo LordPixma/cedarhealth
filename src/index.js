@@ -8,7 +8,7 @@
 
 import { handleApi } from "./api.js";
 import { renderHome, renderIntake } from "./site.js";
-import { getAllContent } from "./lib/db.js";
+import { getAllContent, getSettings, purgeOldSubmissions } from "./lib/db.js";
 
 const SECURITY_HEADERS = {
   "X-Content-Type-Options": "nosniff",
@@ -69,5 +69,12 @@ export default {
 
     // Static assets (admin app, styles, scripts, seed images, favicon, …)
     return env.ASSETS.fetch(request);
+  },
+
+  // Daily retention job: delete intake submissions older than the configured
+  // number of days (0 = keep until manually deleted).
+  async scheduled(event, env, ctx) {
+    const settings = await getSettings(env);
+    ctx.waitUntil(purgeOldSubmissions(env, settings.retentionDays));
   }
 };

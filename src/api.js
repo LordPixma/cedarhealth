@@ -6,7 +6,8 @@ import { CONTENT_SECTIONS, INTAKE_SCHEMA } from "./lib/defaults.js";
 import {
   getAllContent, setContent,
   getAdminByEmail, setAdminPassword, createAdmin, listAdmins, deleteAdminById, countAdmins,
-  addSubmission, listSubmissions, getSubmission, setSubmissionStatus, submissionCounts, allSubmissions
+  addSubmission, listSubmissions, getSubmission, setSubmissionStatus, submissionCounts, allSubmissions,
+  deleteSubmission, getSettings
 } from "./lib/db.js";
 
 const COOKIE = "cedar_session";
@@ -104,6 +105,24 @@ export async function handleApi(request, env, url) {
       if (!status) return json({ error: "Invalid status." }, 400);
       await setSubmissionStatus(env, id, status);
       return json({ ok: true });
+    }
+    if (path.startsWith("/api/submissions/") && method === "DELETE") {
+      const id = parseInt(path.slice("/api/submissions/".length), 10);
+      if (!id) return json({ error: "Invalid submission." }, 400);
+      await deleteSubmission(env, id);
+      return json({ ok: true });
+    }
+
+    if (path === "/api/settings" && method === "GET") {
+      return json({ settings: await getSettings(env) });
+    }
+    if (path === "/api/settings" && method === "POST") {
+      const body = await request.json().catch(() => ({}));
+      let days = parseInt(body.retentionDays, 10);
+      if (isNaN(days) || days < 0) return json({ error: "Enter a number of days (0 to keep forever)." }, 400);
+      if (days > 3650) days = 3650;
+      await setContent(env, "settings", { retentionDays: days });
+      return json({ ok: true, settings: { retentionDays: days } });
     }
 
     if (path === "/api/account/password" && method === "POST") {

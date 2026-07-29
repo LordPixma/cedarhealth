@@ -343,8 +343,31 @@
       '<div class="page-head" style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap">' +
       '<div><h1>Patient intake</h1><p>Forms submitted by people registering as patients. This is private information — only signed-in staff can see it.</p></div>' +
       '<a class="btn btn--ghost btn--sm" href="/api/submissions/export" download>⬇ Export all (CSV)</a>' +
-      '</div><div id="subArea">Loading…</div>';
+      '</div>' +
+      '<div class="card" id="retentionCard" style="max-width:660px;margin-bottom:1.3rem">Loading…</div>' +
+      '<div id="subArea">Loading…</div>';
+    loadRetention();
     loadSubs();
+  }
+  function loadRetention() {
+    api("GET", "/api/settings").then(function (j) {
+      var d = (j.settings && j.settings.retentionDays) || 0;
+      $("#retentionCard").innerHTML =
+        '<h3 style="color:var(--cedar);font-size:1.05rem;margin:0 0 .4rem">Retention</h3>' +
+        '<p style="color:var(--muted);font-size:.9rem;margin:0 0 .9rem">Automatically delete intake submissions after a set number of days — they contain health information, so keep them only as long as you need. Set to <b>0</b> to keep them until you delete them yourself.</p>' +
+        '<div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">' +
+        '<span>Delete submissions older than</span>' +
+        '<input type="number" id="retDays" min="0" max="3650" value="' + d + '" style="width:88px;padding:.5rem .6rem;border:1.5px solid var(--line);border-radius:8px;font:inherit" />' +
+        '<span>days</span><button class="btn btn--sm" id="retBtn">Save</button>' +
+        '<span class="help" style="color:var(--muted);margin-left:.3rem">' + (d > 0 ? "Auto-deletes after " + d + " days" : "Kept until manually deleted") + "</span></div>";
+      $("#retBtn").addEventListener("click", function () {
+        var btn = $("#retBtn"); btn.disabled = true;
+        api("POST", "/api/settings", { retentionDays: $("#retDays").value })
+          .then(function () { toast("Retention saved"); loadRetention(); })
+          .catch(function (e) { toast(e.message, true); })
+          .then(function () { btn.disabled = false; });
+      });
+    });
   }
   function loadSubs() {
     api("GET", "/api/submissions?status=" + (state.subStatus === "all" ? "" : state.subStatus)).then(function (j) {
@@ -388,10 +411,11 @@
         '<div class="detail">' +
         '<button class="btn btn--ghost btn--sm detail__back" id="backBtn">← Back to list</button>' +
         '<div class="page-head"><h1>' + esc(s.patient_name || "Submission") + '</h1><p>Received ' + fmtDate(s.created_at) + " · status: " + esc(s.status) + "</p></div>" +
-        '<div style="margin-bottom:1.2rem;display:flex;gap:.6rem;flex-wrap:wrap">' +
+        '<div style="margin-bottom:1.2rem;display:flex;gap:.6rem;flex-wrap:wrap;align-items:center">' +
         '<button class="btn btn--sm" data-st="reviewed">Mark reviewed</button>' +
         '<button class="btn btn--ghost btn--sm" data-st="archived">Archive</button>' +
-        '<button class="btn btn--ghost btn--sm" data-st="new">Mark new</button></div>' +
+        '<button class="btn btn--ghost btn--sm" data-st="new">Mark new</button>' +
+        '<button class="btn btn--danger btn--sm" id="delSub" style="margin-left:auto">Delete permanently</button></div>' +
         '<div class="card">' + groups + "</div></div>";
       $("#backBtn").addEventListener("click", renderSubmissions);
       Array.prototype.forEach.call(document.querySelectorAll("[data-st]"), function (b) {
@@ -399,6 +423,12 @@
           api("PATCH", "/api/submissions/" + id, { status: b.getAttribute("data-st") })
             .then(function () { toast("Updated"); renderSubmissions(); });
         });
+      });
+      $("#delSub").addEventListener("click", function () {
+        if (!window.confirm("Permanently delete this patient's submission? This can't be undone.")) return;
+        api("DELETE", "/api/submissions/" + id)
+          .then(function () { toast("Submission deleted"); renderSubmissions(); })
+          .catch(function (e) { toast(e.message, true); });
       });
     });
   }

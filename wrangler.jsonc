@@ -13,6 +13,8 @@
     "not_found_handling": "none"
   },
   "observability": { "enabled": true },
+  // Daily retention job (03:00 UTC) — purges intake submissions past their retention period.
+  "triggers": { "crons": ["0 3 * * *"] },
   "d1_databases": [
     {
       "binding": "DB",
