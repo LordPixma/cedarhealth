@@ -143,3 +143,23 @@ export async function purgeOldSubmissions(env, retentionDays) {
   const res = await env.DB.prepare("DELETE FROM submissions WHERE created_at < ?").bind(cutoff).run();
   return (res.meta && res.meta.changes) || 0;
 }
+
+/* ---------------- access log (PHI audit trail) ---------------- */
+
+// Best-effort: logging a PHI access must never break the underlying request.
+export async function logAccess(env, entry) {
+  try {
+    await env.DB.prepare(
+      "INSERT INTO access_log (admin_email, action, submission_id, detail) VALUES (?, ?, ?, ?)"
+    ).bind(entry.admin_email || null, entry.action, entry.submission_id ?? null, entry.detail || null).run();
+  } catch { /* ignore */ }
+}
+
+export async function listAccessLog(env, { limit = 200 } = {}) {
+  try {
+    const { results } = await env.DB.prepare(
+      "SELECT id, created_at, admin_email, action, submission_id, detail FROM access_log ORDER BY created_at DESC LIMIT ?"
+    ).bind(limit).all();
+    return results || [];
+  } catch { return []; }
+}

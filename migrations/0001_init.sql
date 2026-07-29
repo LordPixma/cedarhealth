@@ -31,3 +31,15 @@ CREATE TABLE IF NOT EXISTS submissions (
 
 CREATE INDEX IF NOT EXISTS idx_submissions_created ON submissions (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_submissions_status  ON submissions (status);
+
+-- Audit trail: who viewed / exported / deleted patient intake (access to PHI).
+CREATE TABLE IF NOT EXISTS access_log (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  created_at     INTEGER NOT NULL DEFAULT (unixepoch()),
+  admin_email    TEXT,
+  action         TEXT NOT NULL,      -- viewed | exported | deleted | marked <status>
+  submission_id  INTEGER,            -- null for bulk actions (e.g. export)
+  detail         TEXT                -- e.g. the patient's name, kept readable after deletion
+);
+
+CREATE INDEX IF NOT EXISTS idx_access_created ON access_log (created_at DESC);

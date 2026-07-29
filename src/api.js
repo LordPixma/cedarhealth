@@ -7,7 +7,7 @@ import {
   getAllContent, setContent,
   getAdminByEmail, setAdminPassword, createAdmin, listAdmins, deleteAdminById, countAdmins,
   addSubmission, listSubmissions, getSubmission, setSubmissionStatus, submissionCounts, allSubmissions,
-  deleteSubmission, getSettings
+  deleteSubmission, getSettings, logAccess, listAccessLog
 } from "./lib/db.js";
 
 const COOKIE = "cedar_session";
@@ -86,6 +86,7 @@ export async function handleApi(request, env, url) {
       const rows = await allSubmissions(env, status);
       const csv = buildCsv(rows);
       const date = new Date().toISOString().slice(0, 10);
+      await logAccess(env, { admin_email: user.email, action: "exported", detail: rows.length + " records" });
       return new Response("﻿" + csv, {
         headers: {
           "Content-Type": "text/csv; charset=utf-8",
@@ -96,7 +97,9 @@ export async function handleApi(request, env, url) {
     if (path.startsWith("/api/submissions/") && method === "GET") {
       const id = parseInt(path.slice("/api/submissions/".length), 10);
       const sub = await getSubmission(env, id);
-      return sub ? json({ submission: sub, schema: INTAKE_SCHEMA }) : json({ error: "Not found." }, 404);
+      if (!sub) return json({ error: "Not found." }, 404);
+      await logAccess(env, { admin_email: user.email, action: "viewed", submission_id: id, detail: sub.patient_name });
+      return json({ submission: sub, schema: INTAKE_SCHEMA });
     }
     if (path.startsWith("/api/submissions/") && method === "PATCH") {
       const id = parseInt(path.slice("/api/submissions/".length), 10);
@@ -104,12 +107,15 @@ export async function handleApi(request, env, url) {
       const status = ["new", "reviewed", "archived"].includes(body.status) ? body.status : null;
       if (!status) return json({ error: "Invalid status." }, 400);
       await setSubmissionStatus(env, id, status);
+      await logAccess(env, { admin_email: user.email, action: "marked " + status, submission_id: id });
       return json({ ok: true });
     }
     if (path.startsWith("/api/submissions/") && method === "DELETE") {
       const id = parseInt(path.slice("/api/submissions/".length), 10);
       if (!id) return json({ error: "Invalid submission." }, 400);
+      const sub = await getSubmission(env, id);
       await deleteSubmission(env, id);
+      await logAccess(env, { admin_email: user.email, action: "deleted", submission_id: id, detail: sub ? sub.patient_name : null });
       return json({ ok: true });
     }
 
@@ -123,6 +129,10 @@ export async function handleApi(request, env, url) {
       if (days > 3650) days = 3650;
       await setContent(env, "settings", { retentionDays: days });
       return json({ ok: true, settings: { retentionDays: days } });
+    }
+
+    if (path === "/api/access-log" && method === "GET") {
+      return json({ log: await listAccessLog(env, { limit: 200 }) });
     }
 
     if (path === "/api/account/password" && method === "POST") {

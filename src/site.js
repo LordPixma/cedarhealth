@@ -290,7 +290,7 @@ function contactSection(content) {
 }
 
 /* ========================================================== INTAKE PAGE */
-const PRIVACY_NOTICE = `Cedar Health collects the personal health information on this form to register you as a patient and to provide and coordinate your care. Your information is stored securely and is accessible only to Cedar Health staff involved in your care. We do not sell your information or use it for advertising. You may ask to see or correct your information, or ask questions about our privacy practices, by contacting the clinic. This collection is carried out under Ontario's Personal Health Information Protection Act (PHIPA).`;
+// The privacy notice + intake intro are editable content (content.intake.*).
 
 function field(f) {
   const col = `field field--col${f.cols || 12}`;
@@ -344,11 +344,12 @@ function field(f) {
 }
 
 export function renderIntake(content) {
+  const intake = content.intake || {};
   const sections = INTAKE_SCHEMA.map((s) => `
     <fieldset class="intake-section">
       <legend><span class="intake-section__n">${s.id === "consent" ? "" : ""}</span>${esc(s.title)}</legend>
       ${s.intro ? `<p class="intake-section__intro">${esc(s.intro)}</p>` : ""}
-      ${s.isConsent ? `<div class="privacy-notice"><strong>Privacy notice</strong><p>${esc(PRIVACY_NOTICE)}</p></div>` : ""}
+      ${s.isConsent ? `<div class="privacy-notice"><strong>Privacy notice</strong><p>${escLines(intake.privacyNotice)}</p></div>` : ""}
       <div class="intake-grid">
         ${s.fields.map(field).join("")}
       </div>
@@ -359,7 +360,7 @@ export function renderIntake(content) {
       <div class="wrap">
         <p class="eyebrow">Patient intake</p>
         <h1>Become a patient at ${esc(content.brand?.name || "Cedar Health")}</h1>
-        <p class="intake-hero__lede">Please complete this form to register. It takes about 10 minutes, and your information is kept private and secure. Fields marked <span class="req">*</span> are required.</p>
+        <p class="intake-hero__lede">${esc(intake.lede || "")} Fields marked <span class="req">*</span> are required.</p>
         <p class="intake-emergency">⚠️ This form is not for emergencies or urgent medical problems. If you have a medical emergency, call <strong>911</strong>.</p>
       </div>
     </section>

@@ -77,8 +77,10 @@
     { id: "brand", label: "Logo & clinic name" },
     { id: "seo", label: "Search / SEO" },
     { id: "footer", label: "Footer" },
+    { id: "intake", label: "Intake form text" },
     { sep: true },
     { id: "submissions", label: "Patient intake" },
+    { id: "accesslog", label: "Access log" },
     { id: "staff", label: "Staff logins" },
     { id: "account", label: "Account" }
   ];
@@ -100,6 +102,7 @@
   function openSection(id) {
     state.active = id; renderNav();
     if (id === "submissions") return renderSubmissions();
+    if (id === "accesslog") return renderAccessLog();
     if (id === "staff") return renderStaff();
     if (id === "account") return renderAccount();
     renderEditor(id);
@@ -150,6 +153,10 @@
     ]},
     footer: { title: "Footer", desc: "The bottom of every page.", fields: [
       T("tagline", "Tagline", "textarea"), T("note", "Small note (right side)", "text")
+    ]},
+    intake: { title: "Intake form text", desc: "Wording on the patient intake form.", fields: [
+      T("lede", "Intro line (under the heading)", "textarea"),
+      T("privacyNotice", "Privacy notice (shown above the consent checkboxes)", "textarea", "This is the PHIPA notice patients agree to — have it reviewed by your privacy advisor.")
     ]}
   };
 
@@ -430,6 +437,24 @@
           .then(function () { toast("Submission deleted"); renderSubmissions(); })
           .catch(function (e) { toast(e.message, true); });
       });
+    });
+  }
+
+  /* ---------------- access log ---------------- */
+  function renderAccessLog() {
+    $("#main").innerHTML =
+      '<div class="page-head"><h1>Access log</h1><p>A record of who viewed, exported, or deleted patient intake information — your privacy audit trail. Most recent first.</p></div>' +
+      '<div id="logArea">Loading…</div>';
+    api("GET", "/api/access-log").then(function (j) {
+      if (!j.log || !j.log.length) { $("#logArea").innerHTML = '<div class="empty">No access recorded yet.</div>'; return; }
+      var rows = j.log.map(function (e) {
+        var ref = e.detail ? esc(e.detail) : (e.submission_id ? "#" + e.submission_id : "");
+        return '<div class="sub-item"><div><div class="sub-item__name">' + esc(e.admin_email || "unknown") +
+          ' <span style="font-weight:400;color:var(--muted)">' + esc(e.action) + '</span> ' +
+          (ref ? '<span>' + ref + "</span>" : "") + "</div>" +
+          '<div class="sub-item__meta">' + fmtDate(e.created_at) + "</div></div></div>";
+      }).join("");
+      $("#logArea").innerHTML = '<div class="sub-list">' + rows + "</div>";
     });
   }
 
