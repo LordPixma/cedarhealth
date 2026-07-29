@@ -251,19 +251,26 @@ async function handleIntake(request, env, ctx) {
     data: body
   });
   // Email a formatted copy to the clinic (best-effort — never blocks/fails the submission).
-  if (ctx && env.EMAIL && intakeRecipients(env).length) {
+  if (ctx && env.EMAIL && intakeRecipients(env).to.length) {
     ctx.waitUntil(sendIntakeEmail(env, body, name).catch((e) => console.error("intake email failed:", e && e.message)));
   }
   return json({ ok: true });
 }
 
 /* ---------------- intake notification email ---------------- */
-// INTAKE_EMAIL_TO holds one or more clinic addresses, comma-separated.
-function intakeRecipients(env) {
-  return String(env.INTAKE_EMAIL_TO || "")
+// INTAKE_EMAIL_TO and INTAKE_EMAIL_BCC each hold one or more addresses, comma-separated.
+function parseAddresses(list) {
+  return String(list || "")
     .split(/[,;\s]+/)
     .map((s) => s.trim())
     .filter((s) => s.includes("@"));
+}
+function intakeRecipients(env) {
+  const to = parseAddresses(env.INTAKE_EMAIL_TO);
+  // Drop anyone already in `to` so a config overlap can't send them two copies.
+  const bcc = parseAddresses(env.INTAKE_EMAIL_BCC)
+    .filter((a) => !to.some((t) => t.toLowerCase() === a.toLowerCase()));
+  return { to, bcc };
 }
 
 function formatIntakeEmail(data, name) {
@@ -295,14 +302,15 @@ function formatIntakeEmail(data, name) {
 }
 
 async function sendIntakeEmail(env, data, name) {
-  const to = intakeRecipients(env);
+  const { to, bcc } = intakeRecipients(env);
   if (!to.length) return;
   const { subject, text, html } = formatIntakeEmail(data, name);
   const domain = (to[0].split("@")[1] || "").trim();
   const from = (env.INTAKE_EMAIL_FROM || "noreply@" + domain).trim();
-  // Every recipient goes in `to` (max 50) — one send, one identical copy each.
+  // `to` recipients see each other; `bcc` copies stay hidden. Combined max is 50.
   await env.EMAIL.send({
     to,
+    ...(bcc.length ? { bcc } : {}),
     from: { email: from, name: "Cedar Health Website" },
     subject,
     text,
