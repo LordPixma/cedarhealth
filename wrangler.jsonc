@@ -19,7 +19,8 @@
   // onboarded for Email Sending (Dashboard → Email Service → Email Sending → Onboard).
   "send_email": [{ "name": "EMAIL" }],
   "vars": {
-    "INTAKE_EMAIL_TO": "intake@cedarhealthcare.ca",
+    // Comma-separated — every address gets a formatted copy of each intake.
+    "INTAKE_EMAIL_TO": "intake@cedarhealthcare.ca, moyo@cedarhealthcare.ca, osarugue@cedarhealthcare.co.uk, samuel@mustardtreegroup.com",
     "INTAKE_EMAIL_FROM": "noreply@cedarhealthcare.ca"
   },
   "d1_databases": [
