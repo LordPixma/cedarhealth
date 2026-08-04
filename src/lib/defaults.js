@@ -106,6 +106,19 @@ export const DEFAULT_CONTENT = {
   intake: {
     lede: "Please complete this form to register. It takes about 10 minutes, and your information is kept private and secure.",
     privacyNotice: "Cedar Health collects the personal health information on this form to register you as a patient and to provide and coordinate your care. Your information is stored securely and is accessible only to Cedar Health staff involved in your care. We do not sell your information or use it for advertising. You may ask to see or correct your information, or ask questions about our privacy practices, by contacting the clinic. This collection is carried out under Ontario's Personal Health Information Protection Act (PHIPA)."
+  },
+
+  // Which homepage sections show, and in what order. The hero always renders
+  // first; site.js ignores unknown ids and appends any missing sections.
+  layout: {
+    sections: [
+      { id: "strip", show: true },
+      { id: "services", show: true },
+      { id: "doctors", show: true },
+      { id: "benefits", show: true },
+      { id: "steps", show: true },
+      { id: "contact", show: true }
+    ]
   }
 };
 

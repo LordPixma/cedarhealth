@@ -66,10 +66,11 @@ button{font:inherit;cursor:pointer}
 .fields{display:grid;gap:1.05rem}
 .f label{display:block;font-family:var(--display);font-weight:600;font-size:.82rem;color:var(--cedar-2);margin-bottom:.35rem}
 .f .help{font-weight:400;color:var(--muted);font-size:.8rem;margin-top:.2rem}
-.f input[type=text],.f input[type=email],.f input[type=tel],.f input[type=password],.f textarea{
+.f input[type=text],.f input[type=email],.f input[type=tel],.f input[type=password],.f textarea,.f select{
   width:100%;font:inherit;font-size:.98rem;padding:.6rem .75rem;border:1.5px solid var(--line);border-radius:var(--radius-sm);background:#fcfdfb;color:var(--ink);transition:border-color .15s,box-shadow .15s}
 .f textarea{min-height:84px;resize:vertical}
-.f input:focus,.f textarea:focus{outline:none;border-color:var(--leaf);background:#fff;box-shadow:0 0 0 3px rgba(47,125,81,.16)}
+.f select{max-width:280px}
+.f input:focus,.f textarea:focus,.f select:focus{outline:none;border-color:var(--leaf);background:#fff;box-shadow:0 0 0 3px rgba(47,125,81,.16)}
 
 /* image field */
 .imgfield{display:flex;align-items:center;gap:1rem;flex-wrap:wrap}

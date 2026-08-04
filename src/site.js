@@ -2,7 +2,7 @@
 // Preserves the exact markup/classes of the original design so styles.css applies
 // unchanged.
 
-import { esc, escLines, attr } from "./lib/html.js";
+import { esc, escLines, attr, rich, richLines } from "./lib/html.js";
 import { INTAKE_SCHEMA } from "./lib/defaults.js";
 
 /* ------------------------------------------------------------------ icons */
@@ -49,6 +49,22 @@ function brandMark(content) {
 }
 
 /* --------------------------------------------------------- header/footer */
+// Nav links that anchor to a homepage section disappear when that section is
+// hidden in content.layout (see homeSectionPlan below).
+const NAV_LINKS = [
+  { section: "services", href: "/#services", label: "Services" },
+  { section: "doctors", href: "/#doctors", label: "Our doctors" },
+  { section: "steps", href: "/#visiting", label: "Visiting" },
+  { section: "contact", href: "/#contact", label: "Contact" }
+];
+
+function navLinks(content, indent, sections) {
+  const vis = visibleHomeSections(content);
+  return NAV_LINKS.filter((l) => vis.has(l.section) && (!sections || sections.includes(l.section)))
+    .map((l) => `<a href="${l.href}">${l.label}</a>`)
+    .join("\n" + indent);
+}
+
 function header(content) {
   return `
   <header class="site-header" id="top">
@@ -57,10 +73,7 @@ function header(content) {
         ${brandMark(content)}
       </a>
       <nav class="nav" aria-label="Primary">
-        <a href="/#services">Services</a>
-        <a href="/#doctors">Our doctors</a>
-        <a href="/#visiting">Visiting</a>
-        <a href="/#contact">Contact</a>
+        ${navLinks(content, "        ")}
         <a class="btn" href="/intake">Register</a>
       </nav>
     </div>
@@ -76,12 +89,10 @@ function footer(content) {
         <a class="brand" href="/" aria-label="${attr(content.brand?.name || "Cedar Health")} home">
           ${brandMark(content)}
         </a>
-        <p class="foot-tag">${esc(f.tagline || "")}</p>
+        <p class="foot-tag">${rich(f.tagline || "")}</p>
       </div>
       <nav class="foot-nav" aria-label="Footer">
-        <a href="/#services">Services</a>
-        <a href="/#doctors">Our doctors</a>
-        <a href="/#visiting">Visiting</a>
+        ${navLinks(content, "        ", ["services", "doctors", "steps"])}
         <a href="/intake">Register</a>
       </nav>
     </div>
@@ -136,6 +147,14 @@ export function renderHome(content) {
   const hero = content.hero || {};
   const phone = (content.contact?.phone || "").trim();
   const heroStyle = hero.photoUrl ? ` style="--hero-photo:url('${attr(hero.photoUrl)}')"` : "";
+  // Without a phone number the secondary CTA anchors to the contact section —
+  // unless that section is hidden, in which case send people to the intake form.
+  const ctaFallback = visibleHomeSections(content).has("contact") ? "/#contact" : "/intake";
+
+  const sections = homeSectionPlan(content)
+    .filter((p) => p.show)
+    .map((p) => HOME_SECTIONS[p.id](content))
+    .join("\n");
 
   const main = `
     <section class="hero"${heroStyle}>
@@ -144,10 +163,10 @@ export function renderHome(content) {
           <span class="pill"><span class="dot" aria-hidden="true"></span> ${esc(hero.pill || "")}</span>
           <p class="eyebrow">${esc(hero.eyebrow || "")}</p>
           <h1>${heroHeading(hero)}</h1>
-          <p class="hero__lede">${esc(hero.lede || "")}</p>
+          <p class="hero__lede">${rich(hero.lede || "")}</p>
           <div class="hero__cta">
             <a class="btn" href="/intake">${esc(hero.ctaPrimary || "Register as a patient")}</a>
-            <a class="btn btn--ghost" href="${phone ? "tel:" + attr(phone.replace(/[^0-9+]/g, "")) : "/#contact"}">${esc(hero.ctaSecondary || "Call the clinic")}</a>
+            <a class="btn btn--ghost" href="${phone ? "tel:" + attr(phone.replace(/[^0-9+]/g, "")) : ctaFallback}">${esc(hero.ctaSecondary || "Call the clinic")}</a>
           </div>
           <ul class="hero__trust">
             ${(hero.trust || []).map((t) => `<li>${esc(t)}</li>`).join("")}
@@ -155,15 +174,34 @@ export function renderHome(content) {
         </div>
       </div>
     </section>
+${sections}
+  `;
 
+  return layout({
+    content,
+    title: content.seo?.title || "Cedar Health",
+    description: content.seo?.description || "",
+    main
+  });
+}
+
+/* ------------------------- homepage sections ------------------------- */
+// Each renders independently so content.layout can hide or reorder them.
+// The hero is not part of the plan — it always renders first.
+
+function stripSection(content) {
+  return `
     <section class="strip" aria-label="At a glance">
       <div class="wrap">
         <ul class="strip__grid">
           ${(content.strip || []).map((s) => `<li><span class="strip__k">${esc(s.k)}</span><span class="strip__v">${esc(s.v)}</span></li>`).join("")}
         </ul>
       </div>
-    </section>
+    </section>`;
+}
 
+function servicesSection(content) {
+  return `
     <section class="section" id="services">
       <div class="wrap">
         ${sectionHead(content.services)}
@@ -172,12 +210,15 @@ export function renderHome(content) {
           <article class="svc reveal">
             ${svc(it.icon)}
             <h3>${esc(it.title)}</h3>
-            <p>${esc(it.body)}</p>
+            <p>${rich(it.body)}</p>
           </article>`).join("")}
         </div>
       </div>
-    </section>
+    </section>`;
+}
 
+function doctorsSection(content) {
+  return `
     <section class="section section--tint" id="doctors">
       <div class="wrap">
         ${sectionHead(content.doctors)}
@@ -190,13 +231,16 @@ export function renderHome(content) {
             <div class="doc__body">
               <span class="role">${esc(d.role)}</span>
               <h3>${esc(d.name)}</h3>
-              <p>${esc(d.bio)}</p>
+              <p>${rich(d.bio)}</p>
             </div>
           </article>`).join("")}
         </div>
       </div>
-    </section>
+    </section>`;
+}
 
+function benefitsSection(content) {
+  return `
     <section class="section section--cedar">
       <div class="wrap">
         ${sectionHead(content.benefits, true)}
@@ -204,12 +248,15 @@ export function renderHome(content) {
           ${(content.benefits?.items || []).map((b) => `
           <div class="benefit reveal">
             ${ben(b.icon)}
-            <div><h3>${esc(b.title)}</h3><p>${esc(b.body)}</p></div>
+            <div><h3>${esc(b.title)}</h3><p>${rich(b.body)}</p></div>
           </div>`).join("")}
         </div>
       </div>
-    </section>
+    </section>`;
+}
 
+function stepsSection(content) {
+  return `
     <section class="section" id="visiting">
       <div class="wrap">
         ${sectionHead(content.steps)}
@@ -218,21 +265,43 @@ export function renderHome(content) {
           <article class="step reveal">
             <span class="step__n">${String(i + 1).padStart(2, "0")}</span>
             <h3>${esc(s.title)}</h3>
-            <p>${esc(s.body)}</p>
+            <p>${rich(s.body)}</p>
           </article>`).join("")}
         </div>
       </div>
-    </section>
+    </section>`;
+}
 
-    ${contactSection(content)}
-  `;
+const HOME_SECTIONS = {
+  strip: stripSection,
+  services: servicesSection,
+  doctors: doctorsSection,
+  benefits: benefitsSection,
+  steps: stepsSection,
+  contact: contactSection
+};
 
-  return layout({
-    content,
-    title: content.seo?.title || "Cedar Health",
-    description: content.seo?.description || "",
-    main
-  });
+// Merge the saved layout with the canonical section list: unknown ids are
+// dropped, duplicates ignored, and sections missing from the saved layout are
+// appended (visible) in default order — so a stale layout can never lose one.
+function homeSectionPlan(content) {
+  const saved = Array.isArray(content.layout?.sections) ? content.layout.sections : [];
+  const seen = new Set();
+  const plan = [];
+  for (const s of saved) {
+    if (s && HOME_SECTIONS[s.id] && !seen.has(s.id)) {
+      seen.add(s.id);
+      plan.push({ id: s.id, show: s.show !== false });
+    }
+  }
+  for (const id of Object.keys(HOME_SECTIONS)) {
+    if (!seen.has(id)) plan.push({ id, show: true });
+  }
+  return plan;
+}
+
+function visibleHomeSections(content) {
+  return new Set(homeSectionPlan(content).filter((p) => p.show).map((p) => p.id));
 }
 
 function sectionHead(sec, onDark = false) {
@@ -241,7 +310,7 @@ function sectionHead(sec, onDark = false) {
         <div class="section__head reveal">
           <p class="eyebrow${onDark ? " on-dark" : ""}">${esc(sec.eyebrow || "")}</p>
           <h2>${esc(sec.title || "")}</h2>
-          ${sec.body ? `<p>${esc(sec.body)}</p>` : ""}
+          ${sec.body ? `<p>${rich(sec.body)}</p>` : ""}
         </div>`;
 }
 
@@ -280,7 +349,7 @@ function contactSection(content) {
 
           <div class="form reveal">
             <h3>Become a patient</h3>
-            <p class="sub">${esc(c.body || "New patients are welcome. Complete the intake form and we'll be in touch.")}</p>
+            <p class="sub">${rich(c.body || "New patients are welcome. Complete the intake form and we'll be in touch.")}</p>
             <a class="btn" href="/intake" style="width:100%;justify-content:center;margin-top:.4rem">Start the patient intake form</a>
             <p class="note">Takes about 10 minutes. In an emergency, call&nbsp;911.</p>
           </div>
@@ -349,7 +418,7 @@ export function renderIntake(content) {
     <fieldset class="intake-section">
       <legend><span class="intake-section__n">${s.id === "consent" ? "" : ""}</span>${esc(s.title)}</legend>
       ${s.intro ? `<p class="intake-section__intro">${esc(s.intro)}</p>` : ""}
-      ${s.isConsent ? `<div class="privacy-notice"><strong>Privacy notice</strong><p>${escLines(intake.privacyNotice)}</p></div>` : ""}
+      ${s.isConsent ? `<div class="privacy-notice"><strong>Privacy notice</strong><p>${richLines(intake.privacyNotice)}</p></div>` : ""}
       <div class="intake-grid">
         ${s.fields.map(field).join("")}
       </div>
@@ -360,7 +429,7 @@ export function renderIntake(content) {
       <div class="wrap">
         <p class="eyebrow">Patient intake</p>
         <h1>Become a patient at ${esc(content.brand?.name || "Cedar Health")}</h1>
-        <p class="intake-hero__lede">${esc(intake.lede || "")} Fields marked <span class="req">*</span> are required.</p>
+        <p class="intake-hero__lede">${rich(intake.lede || "")} Fields marked <span class="req">*</span> are required.</p>
         <p class="intake-emergency">⚠️ This form is not for emergencies or urgent medical problems. If you have a medical emergency, call <strong>911</strong>.</p>
       </div>
     </section>
