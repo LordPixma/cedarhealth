@@ -17,7 +17,7 @@ export const DEFAULT_CONTENT = {
 
   hero: {
     pill: "Now accepting new patients",
-    eyebrow: "A family practice on the Niagara escarpment",
+    eyebrow: "A family practice in the Niagara Region",
     heading: "Care that grows with your family.",
     emphasis: "with", // this word is highlighted in the accent colour
     lede:
