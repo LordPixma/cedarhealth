@@ -68,6 +68,7 @@
   /* ---------------- navigation ---------------- */
   var NAV = [
     { id: "hero", label: "Homepage hero" },
+    { id: "layout", label: "Homepage layout" },
     { id: "services", label: "Services" },
     { id: "doctors", label: "Doctors" },
     { id: "benefits", label: "Why families choose us" },
@@ -101,6 +102,7 @@
 
   function openSection(id) {
     state.active = id; renderNav();
+    if (id === "layout") return renderLayout();
     if (id === "submissions") return renderSubmissions();
     if (id === "accesslog") return renderAccessLog();
     if (id === "staff") return renderStaff();
@@ -110,37 +112,39 @@
 
   /* ---------------- editor definitions ---------------- */
   var T = function (k, label, type, help) { return { k: k, label: label, type: type || "text", help: help }; };
+  // Paragraph-type fields support light formatting (rendered safely server-side).
+  var FMT = "You can use **bold** and [link text](https://example.com).";
   var EDITORS = {
     hero: { title: "Homepage hero", desc: "The top of your homepage — the first thing visitors see.", fields: [
       T("pill", "Green banner text", "text", "The little rounded badge, e.g. “Now accepting new patients”."),
       T("eyebrow", "Small label above the headline", "text"),
       T("heading", "Headline", "text"),
       T("emphasis", "Word to highlight in green", "text", "Type one word from the headline; it turns green."),
-      T("lede", "Intro paragraph", "textarea"),
+      T("lede", "Intro paragraph", "textarea", FMT),
       T("photoUrl", "Background photo", "image"),
       T("ctaPrimary", "Main button label", "text"),
       T("ctaSecondary", "Second button label", "text"),
       T("trust", "Checkmarked points", "tags")
     ]},
     services: { title: "Services", desc: "The “What we do” cards.", fields: [
-      T("eyebrow", "Small label", "text"), T("title", "Section heading", "text"), T("body", "Intro line", "textarea"),
-      { k: "items", label: "Service cards", type: "list", item: [T("title", "Title"), T("body", "Description", "textarea")] }
+      T("eyebrow", "Small label", "text"), T("title", "Section heading", "text"), T("body", "Intro line", "textarea", FMT),
+      { k: "items", label: "Service cards", type: "list", item: [T("icon", "Icon", "icon"), T("title", "Title"), T("body", "Description", "textarea", FMT)] }
     ]},
     doctors: { title: "Doctors", desc: "Your physicians.", fields: [
-      T("eyebrow", "Small label", "text"), T("title", "Section heading", "text"), T("body", "Intro line", "textarea"),
-      { k: "items", label: "Doctors", type: "list", item: [T("name", "Name"), T("role", "Role"), T("bio", "Short bio", "textarea"), T("photoUrl", "Photo", "image")] }
+      T("eyebrow", "Small label", "text"), T("title", "Section heading", "text"), T("body", "Intro line", "textarea", FMT),
+      { k: "items", label: "Doctors", type: "list", item: [T("name", "Name"), T("role", "Role"), T("bio", "Short bio", "textarea", FMT), T("photoUrl", "Photo", "image")] }
     ]},
     benefits: { title: "Why families choose us", desc: "The dark green highlights band.", fields: [
       T("eyebrow", "Small label", "text"), T("title", "Section heading", "text"),
-      { k: "items", label: "Points", type: "list", item: [T("title", "Title"), T("body", "Description", "textarea")] }
+      { k: "items", label: "Points", type: "list", item: [T("icon", "Icon", "icon"), T("title", "Title"), T("body", "Description", "textarea", FMT)] }
     ]},
     steps: { title: "How it works", desc: "The numbered “what to expect” steps.", fields: [
-      T("eyebrow", "Small label", "text"), T("title", "Section heading", "text"), T("body", "Intro line", "textarea"),
-      { k: "items", label: "Steps", type: "list", item: [T("title", "Title"), T("body", "Description", "textarea")] }
+      T("eyebrow", "Small label", "text"), T("title", "Section heading", "text"), T("body", "Intro line", "textarea", FMT),
+      { k: "items", label: "Steps", type: "list", item: [T("title", "Title"), T("body", "Description", "textarea", FMT)] }
     ]},
     strip: { title: "“At a glance” band", desc: "The four quick facts under the hero.", arrayOf: [T("k", "Big word"), T("v", "Small line under it")] },
     contact: { title: "Hours & contact", desc: "Address, phone, email and opening hours.", fields: [
-      T("eyebrow", "Small label", "text"), T("title", "Section heading", "text"), T("body", "Intro line", "textarea"),
+      T("eyebrow", "Small label", "text"), T("title", "Section heading", "text"), T("body", "Intro line", "textarea", FMT),
       T("address", "Clinic address", "textarea"), T("phone", "Phone number", "text"), T("email", "Email", "text"),
       { k: "hours", label: "Opening hours", type: "rows", item: [T("d", "Day(s)"), T("t", "Hours")] }
     ]},
@@ -152,11 +156,11 @@
       T("title", "Page title", "text"), T("description", "Description", "textarea")
     ]},
     footer: { title: "Footer", desc: "The bottom of every page.", fields: [
-      T("tagline", "Tagline", "textarea"), T("note", "Small note (right side)", "text")
+      T("tagline", "Tagline", "textarea", FMT), T("note", "Small note (right side)", "text")
     ]},
     intake: { title: "Intake form text", desc: "Wording on the patient intake form.", fields: [
-      T("lede", "Intro line (under the heading)", "textarea"),
-      T("privacyNotice", "Privacy notice (shown above the consent checkboxes)", "textarea", "This is the PHIPA notice patients agree to — have it reviewed by your privacy advisor.")
+      T("lede", "Intro line (under the heading)", "textarea", FMT),
+      T("privacyNotice", "Privacy notice (shown above the consent checkboxes)", "textarea", "This is the PHIPA notice patients agree to — have it reviewed by your privacy advisor. " + FMT)
     ]}
   };
 
@@ -182,6 +186,7 @@
     if (f.type === "rows") return rowsField(f, path);
     if (f.type === "tags") return tagsField(f, path);
     if (f.type === "image") return imageField(f, path);
+    if (f.type === "icon") return iconField(f, path);
     var val = esc(getPath(draft, path));
     var input = f.type === "textarea"
       ? '<textarea data-bind="' + path + '">' + val + "</textarea>"
@@ -189,6 +194,24 @@
     return '<div class="f"><label>' + esc(f.label) + "</label>" + input + help(f) + "</div>";
   }
   function help(f) { return f.help ? '<div class="help">' + esc(f.help) + "</div>" : ""; }
+
+  // Names must exist in the site's ICONS map (src/site.js); unknown values fall
+  // back to a sensible default when the page renders.
+  var ICON_CHOICES = [
+    ["heart", "Heart"], ["child", "Child"], ["syringe", "Syringe"], ["flask", "Lab flask"],
+    ["pulse", "Pulse line"], ["clock", "Clock"], ["video", "Video call"], ["calendar", "Calendar"],
+    ["monitor", "Health monitor"], ["globe", "Globe"], ["lock", "Padlock"], ["pin", "Map pin"],
+    ["phone", "Phone"], ["mail", "Envelope"]
+  ];
+  function iconField(f, path) {
+    var val = getPath(draft, path) || "";
+    var known = ICON_CHOICES.some(function (c) { return c[0] === val; });
+    var opts = ICON_CHOICES.map(function (c) {
+      return '<option value="' + c[0] + '"' + (val === c[0] ? " selected" : "") + ">" + esc(c[1]) + "</option>";
+    }).join("");
+    if (val && !known) opts = '<option value="' + esc(val) + '" selected>' + esc(val) + "</option>" + opts;
+    return '<div class="f"><label>' + esc(f.label) + '</label><select data-bind="' + path + '">' + opts + "</select>" + help(f) + "</div>";
+  }
 
   function imageField(f, path) {
     var url = getPath(draft, path) || "";
@@ -253,11 +276,13 @@
   /* bind inputs + action buttons to the draft */
   function bind() {
     Array.prototype.forEach.call(document.querySelectorAll("[data-bind]"), function (inp) {
-      inp.addEventListener("input", function () {
+      var apply = function () {
         var p = inp.getAttribute("data-bind");
         if (p.indexOf("__root") === 0) setPath({ __root: draft }, p, inp.value);
         else setPath(draft, p, inp.value);
-      });
+      };
+      inp.addEventListener("input", apply);
+      inp.addEventListener("change", apply); // selects fire change, not always input
     });
     Array.prototype.forEach.call(document.querySelectorAll("[data-act]"), function (btn) {
       btn.addEventListener("click", function () { action(btn); });
@@ -341,6 +366,83 @@
       toast("Saved — your website is updated");
       setTimeout(function () { $("#savedMsg") && $("#savedMsg").classList.add("hidden"); }, 2500);
     }).catch(function (e) { toast(e.message, true); })
+      .then(function () { btn.disabled = false; btn.textContent = "Save changes"; });
+  }
+
+  /* ---------------- homepage layout ---------------- */
+  var LAYOUT_ORDER = ["strip", "services", "doctors", "benefits", "steps", "contact"];
+  var LAYOUT_NAMES = {
+    strip: "“At a glance” band",
+    services: "Services",
+    doctors: "Doctors",
+    benefits: "Why families choose us",
+    steps: "How it works",
+    contact: "Hours & contact"
+  };
+  var layoutDraft = null;
+
+  // Same defensive merge the site performs: drop unknown ids, keep saved order,
+  // append anything missing so every section always has a row here.
+  function layoutPlan() {
+    var saved = (state.content.layout && Array.isArray(state.content.layout.sections)) ? state.content.layout.sections : [];
+    var seen = {}, plan = [];
+    saved.forEach(function (s) {
+      if (s && LAYOUT_NAMES[s.id] && !seen[s.id]) { seen[s.id] = 1; plan.push({ id: s.id, show: s.show !== false }); }
+    });
+    LAYOUT_ORDER.forEach(function (id) { if (!seen[id]) plan.push({ id: id, show: true }); });
+    return plan;
+  }
+
+  function renderLayout() {
+    layoutDraft = layoutPlan();
+    $("#main").innerHTML =
+      '<div class="page-head"><h1>Homepage layout</h1><p>Choose which sections appear on your homepage and their order. The hero always shows first. Menu links to a hidden section disappear automatically.</p></div>' +
+      '<div class="card"><div id="layoutRows"></div></div>' +
+      '<div class="save-bar"><button class="btn" id="layoutSave">Save changes</button>' +
+      '<button class="btn btn--ghost" id="layoutReset">Undo</button><span class="saved hidden" id="savedMsg">✓ Saved</span></div>';
+    drawLayoutRows();
+    $("#layoutSave").addEventListener("click", saveLayout);
+    $("#layoutReset").addEventListener("click", renderLayout);
+  }
+
+  function drawLayoutRows() {
+    var rows = layoutDraft.map(function (s, i) {
+      return '<div class="item__bar" style="padding:.55rem 0;border-bottom:1px solid var(--line)">' +
+        '<label style="display:flex;align-items:center;gap:.55rem;cursor:pointer;flex:1">' +
+        '<input type="checkbox" data-layout-show="' + i + '"' + (s.show ? " checked" : "") + ' /> ' +
+        '<span class="item__title" style="font-weight:600' + (s.show ? "" : ";color:var(--muted)") + '">' + esc(LAYOUT_NAMES[s.id]) + "</span>" +
+        (s.show ? "" : ' <span class="pill-status archived">hidden</span>') + "</label>" +
+        '<button type="button" class="iconbtn" data-layout-move="-1" data-i="' + i + '"' + (i === 0 ? " disabled" : "") + ">↑</button>" +
+        '<button type="button" class="iconbtn" data-layout-move="1" data-i="' + i + '"' + (i === layoutDraft.length - 1 ? " disabled" : "") + ">↓</button>" +
+        "</div>";
+    }).join("");
+    $("#layoutRows").innerHTML = rows;
+    Array.prototype.forEach.call(document.querySelectorAll("[data-layout-show]"), function (cb) {
+      cb.addEventListener("change", function () {
+        layoutDraft[parseInt(cb.getAttribute("data-layout-show"), 10)].show = cb.checked;
+        drawLayoutRows();
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-layout-move]"), function (b) {
+      b.addEventListener("click", function () {
+        var i = parseInt(b.getAttribute("data-i"), 10);
+        var d = parseInt(b.getAttribute("data-layout-move"), 10);
+        var t = layoutDraft[i + d]; layoutDraft[i + d] = layoutDraft[i]; layoutDraft[i] = t;
+        drawLayoutRows();
+      });
+    });
+  }
+
+  function saveLayout() {
+    var btn = $("#layoutSave"); btn.disabled = true; btn.textContent = "Saving…";
+    api("PUT", "/api/content/layout", { sections: layoutDraft })
+      .then(function () {
+        state.content.layout = { sections: clone(layoutDraft) };
+        $("#savedMsg").classList.remove("hidden");
+        toast("Saved — your website is updated");
+        setTimeout(function () { $("#savedMsg") && $("#savedMsg").classList.add("hidden"); }, 2500);
+      })
+      .catch(function (e) { toast(e.message, true); })
       .then(function () { btn.disabled = false; btn.textContent = "Save changes"; });
   }
 
