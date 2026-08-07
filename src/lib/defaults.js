@@ -153,7 +153,10 @@ export const INTAKE_SCHEMA = [
       { name: "health_card_number", label: "Health card number", type: "text", cols: 6, inputmode: "numeric" },
       { name: "health_card_version", label: "Version code", type: "text", cols: 3 },
       { name: "health_card_province", label: "Issuing province", type: "text", cols: 3, value: "Ontario" },
-      { name: "no_health_card", label: "I don't currently have a health card", type: "consent", plain: true }
+      // Replaces the old no_health_card checkbox ("I don't currently have a
+      // health card") — new id on purpose: the stored boolean had the opposite
+      // meaning, so reusing the id would misread old answers.
+      { name: "has_health_card", label: "Do you currently have a health card?", type: "select", cols: 6, options: ["Yes", "No"] }
     ]
   },
   {
