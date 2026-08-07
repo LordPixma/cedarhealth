@@ -122,9 +122,6 @@ export const DEFAULT_CONTENT = {
   }
 };
 
-// Sections the /admin editor exposes as simple forms (order matters).
-export const CONTENT_SECTIONS = Object.keys(DEFAULT_CONTENT);
-
 /* =========================================================================
    Patient intake form definition.
    Rendered on /intake and used to label submissions in /admin.
@@ -258,3 +255,12 @@ export const INTAKE_FIELD_INDEX = (() => {
   for (const section of INTAKE_SCHEMA) for (const f of section.fields) map[f.name] = { ...f, section: section.title };
   return map;
 })();
+
+// The intake form definition is editable content (admin → Intake questions).
+// The schema above is its default; src/lib/intake.js validates edits and falls
+// back to it if the saved form is ever invalid.
+DEFAULT_CONTENT.intakeForm = { sections: INTAKE_SCHEMA };
+
+// Sections the /admin editor exposes (membership check for PUT /api/content/*).
+// Computed last so it includes intakeForm.
+export const CONTENT_SECTIONS = Object.keys(DEFAULT_CONTENT);

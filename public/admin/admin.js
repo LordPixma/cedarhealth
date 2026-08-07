@@ -79,6 +79,7 @@
     { id: "seo", label: "Search / SEO" },
     { id: "footer", label: "Footer" },
     { id: "intake", label: "Intake form text" },
+    { id: "intakeform", label: "Intake questions" },
     { sep: true },
     { id: "submissions", label: "Patient intake" },
     { id: "accesslog", label: "Access log" },
@@ -103,6 +104,7 @@
   function openSection(id) {
     state.active = id; renderNav();
     if (id === "layout") return renderLayout();
+    if (id === "intakeform") return renderIntakeBuilder();
     if (id === "submissions") return renderSubmissions();
     if (id === "accesslog") return renderAccessLog();
     if (id === "staff") return renderStaff();
@@ -440,6 +442,197 @@
         state.content.layout = { sections: clone(layoutDraft) };
         $("#savedMsg").classList.remove("hidden");
         toast("Saved — your website is updated");
+        setTimeout(function () { $("#savedMsg") && $("#savedMsg").classList.add("hidden"); }, 2500);
+      })
+      .catch(function (e) { toast(e.message, true); })
+      .then(function () { btn.disabled = false; btn.textContent = "Save changes"; });
+  }
+
+  /* ---------------- intake form builder ---------------- */
+  // Six fields are locked because the submission API depends on them by name;
+  // the server rejects any save that removes them (see src/lib/intake.js).
+  var Q_LOCKED = { legal_first_name: 1, legal_last_name: 1, signature_name: 1, consent_collection: 1, consent_contact: 1, consent_accuracy: 1 };
+  var Q_TYPES = [
+    ["text", "Short answer"], ["textarea", "Long answer"], ["email", "Email"], ["tel", "Phone"],
+    ["date", "Date"], ["number", "Number"], ["select", "Dropdown"], ["checkboxes", "Checkboxes"],
+    ["consent", "Consent checkbox"], ["note", "Explanatory text (no answer)"]
+  ];
+  var Q_WIDTHS = [["12", "Full width"], ["6", "Half"], ["4", "Third"], ["3", "Quarter"]];
+  var ibDraft = null;
+
+  function sectionHasLocked(sec) {
+    return (sec.fields || []).some(function (f) { return Q_LOCKED[f.name]; });
+  }
+
+  function renderIntakeBuilder() {
+    ibDraft = clone(state.content.intakeForm || { sections: [] });
+    $("#main").innerHTML =
+      '<div class="page-head"><h1>Intake questions</h1>' +
+      '<p>The questions on the patient intake form. Changes apply to new registrations — past submissions keep their answers, but answers to removed questions are no longer shown. ' +
+      'Questions marked <span class="pill-status reviewed">locked</span> are required by the system and can’t be removed.</p></div>' +
+      '<div id="ibArea"></div>' +
+      '<div style="margin:0 0 1.2rem"><button class="btn btn--ghost btn--sm" id="ibAddSec">+ Add section</button></div>' +
+      '<div class="save-bar"><button class="btn" id="ibSave">Save changes</button>' +
+      '<button class="btn btn--ghost" id="ibReset">Undo</button><span class="saved hidden" id="savedMsg">✓ Saved</span></div>';
+    drawBuilder();
+    $("#ibSave").addEventListener("click", saveIntakeBuilder);
+    $("#ibReset").addEventListener("click", renderIntakeBuilder);
+    $("#ibAddSec").addEventListener("click", function () {
+      ibDraft.sections.push({ title: "New section", fields: [] });
+      drawBuilder();
+    });
+  }
+
+  function ibFieldRow(f, si, fi, n) {
+    var locked = !!Q_LOCKED[f.name];
+    var isNote = f.type === "note";
+    var typeOpts = Q_TYPES.map(function (t) {
+      return '<option value="' + t[0] + '"' + (f.type === t[0] ? " selected" : "") + ">" + t[1] + "</option>";
+    }).join("");
+    var widthVal = String(f.cols || 12);
+    var widthOpts = Q_WIDTHS.map(function (w) {
+      return '<option value="' + w[0] + '"' + (widthVal === w[0] ? " selected" : "") + ">" + w[1] + "</option>";
+    }).join("");
+    if (!Q_WIDTHS.some(function (w) { return w[0] === widthVal; })) {
+      widthOpts = '<option value="' + widthVal + '" selected>Custom (' + widthVal + "/12)</option>" + widthOpts;
+    }
+    var label = isNote
+      ? '<textarea data-ib="' + si + "." + fi + '.label" style="min-height:56px">' + esc(f.label || "") + "</textarea>"
+      : '<input type="text" data-ib="' + si + "." + fi + '.label" value="' + esc(f.label || "") + '" placeholder="Question label" />';
+    var opts = (f.type === "select" || f.type === "checkboxes")
+      ? '<div class="f" style="margin-top:.5rem"><label>Choices (one per line)</label>' +
+        '<textarea data-ib-opts="' + si + "." + fi + '" style="min-height:70px">' + esc((f.options || []).join("\n")) + "</textarea></div>"
+      : "";
+    return '<div class="item"><div class="item__bar">' +
+      '<span class="item__title">Q' + (fi + 1) + "</span>" +
+      (locked ? '<span class="pill-status reviewed">locked</span>' : "") +
+      '<span class="spacer"></span>' +
+      '<button type="button" class="iconbtn" data-ib-act="fup" data-si="' + si + '" data-fi="' + fi + '"' + (fi === 0 ? " disabled" : "") + ">↑</button>" +
+      '<button type="button" class="iconbtn" data-ib-act="fdown" data-si="' + si + '" data-fi="' + fi + '"' + (fi === n - 1 ? " disabled" : "") + ">↓</button>" +
+      (locked ? "" : '<button type="button" class="iconbtn" data-ib-act="fdel" data-si="' + si + '" data-fi="' + fi + '">✕</button>') +
+      "</div>" +
+      '<div class="fields"><div class="f">' + label + "</div>" +
+      '<div style="display:flex;gap:.7rem;flex-wrap:wrap;align-items:center">' +
+      '<select data-ib-type="' + si + "." + fi + '"' + (locked ? " disabled" : "") + ' style="max-width:230px">' + typeOpts + "</select>" +
+      (isNote ? "" : '<select data-ib-width="' + si + "." + fi + '" style="max-width:150px">' + widthOpts + "</select>") +
+      (isNote || f.type === "checkboxes" ? "" :
+        '<label style="display:flex;align-items:center;gap:.4rem;font-size:.9rem;cursor:pointer">' +
+        '<input type="checkbox" data-ib-req="' + si + "." + fi + '"' + (f.required ? " checked" : "") + (locked ? " disabled" : "") + " /> Required</label>") +
+      "</div>" + opts + "</div></div>";
+  }
+
+  function drawBuilder() {
+    var html = ibDraft.sections.map(function (sec, si) {
+      var canDelete = !sectionHasLocked(sec);
+      var rows = (sec.fields || []).map(function (f, fi) { return ibFieldRow(f, si, fi, sec.fields.length); }).join("");
+      return '<div class="card"><div class="item__bar" style="margin-bottom:.8rem">' +
+        '<input type="text" data-ib-sec="' + si + '.title" value="' + esc(sec.title || "") + '" placeholder="Section title" style="flex:1;font-weight:600" />' +
+        '<button type="button" class="iconbtn" data-ib-act="sup" data-si="' + si + '"' + (si === 0 ? " disabled" : "") + ">↑</button>" +
+        '<button type="button" class="iconbtn" data-ib-act="sdown" data-si="' + si + '"' + (si === ibDraft.sections.length - 1 ? " disabled" : "") + ">↓</button>" +
+        (canDelete ? '<button type="button" class="iconbtn" data-ib-act="sdel" data-si="' + si + '">✕</button>' : "") +
+        "</div>" +
+        '<div class="f" style="margin-bottom:.9rem"><label>Section intro (optional)</label>' +
+        '<textarea data-ib-sec="' + si + '.intro" style="min-height:48px">' + esc(sec.intro || "") + "</textarea></div>" +
+        rows +
+        '<button type="button" class="btn btn--ghost btn--sm" data-ib-act="fadd" data-si="' + si + '">+ Add question</button>' +
+        "</div>";
+    }).join("");
+    $("#ibArea").innerHTML = html;
+    bindBuilder();
+  }
+
+  function bindBuilder() {
+    var each = function (sel, fn) { Array.prototype.forEach.call(document.querySelectorAll(sel), fn); };
+    each("[data-ib]", function (inp) {
+      var apply = function () {
+        var p = inp.getAttribute("data-ib").split(".");
+        ibDraft.sections[+p[0]].fields[+p[1]][p[2]] = inp.value;
+      };
+      inp.addEventListener("input", apply); inp.addEventListener("change", apply);
+    });
+    each("[data-ib-sec]", function (inp) {
+      var apply = function () {
+        var p = inp.getAttribute("data-ib-sec").split(".");
+        ibDraft.sections[+p[0]][p[1]] = inp.value;
+      };
+      inp.addEventListener("input", apply); inp.addEventListener("change", apply);
+    });
+    each("[data-ib-opts]", function (inp) {
+      var apply = function () {
+        var p = inp.getAttribute("data-ib-opts").split(".");
+        ibDraft.sections[+p[0]].fields[+p[1]].options =
+          inp.value.split("\n").map(function (s) { return s.trim(); }).filter(Boolean);
+      };
+      inp.addEventListener("input", apply); inp.addEventListener("change", apply);
+    });
+    each("[data-ib-type]", function (sel) {
+      sel.addEventListener("change", function () {
+        var p = sel.getAttribute("data-ib-type").split(".");
+        var f = ibDraft.sections[+p[0]].fields[+p[1]];
+        f.type = sel.value;
+        if ((f.type === "select" || f.type === "checkboxes") && !(f.options && f.options.length)) f.options = ["Option 1"];
+        if (f.type !== "select" && f.type !== "checkboxes") delete f.options;
+        drawBuilder();
+      });
+    });
+    each("[data-ib-width]", function (sel) {
+      sel.addEventListener("change", function () {
+        var p = sel.getAttribute("data-ib-width").split(".");
+        ibDraft.sections[+p[0]].fields[+p[1]].cols = parseInt(sel.value, 10);
+      });
+    });
+    each("[data-ib-req]", function (cb) {
+      cb.addEventListener("change", function () {
+        var p = cb.getAttribute("data-ib-req").split(".");
+        var f = ibDraft.sections[+p[0]].fields[+p[1]];
+        if (cb.checked) f.required = true; else delete f.required;
+      });
+    });
+    each("[data-ib-act]", function (btn) {
+      btn.addEventListener("click", function () {
+        var act = btn.getAttribute("data-ib-act");
+        var si = parseInt(btn.getAttribute("data-si"), 10);
+        var fi = parseInt(btn.getAttribute("data-fi"), 10);
+        var secs = ibDraft.sections, t;
+        if (act === "sup") { t = secs[si - 1]; secs[si - 1] = secs[si]; secs[si] = t; }
+        else if (act === "sdown") { t = secs[si + 1]; secs[si + 1] = secs[si]; secs[si] = t; }
+        else if (act === "sdel") {
+          if (!window.confirm("Remove this section and all its questions from the form? Past submissions keep their answers.")) return;
+          secs.splice(si, 1);
+        }
+        else if (act === "fadd") { secs[si].fields.push({ name: "", label: "", type: "text" }); }
+        else if (act === "fup") { t = secs[si].fields[fi - 1]; secs[si].fields[fi - 1] = secs[si].fields[fi]; secs[si].fields[fi] = t; }
+        else if (act === "fdown") { t = secs[si].fields[fi + 1]; secs[si].fields[fi + 1] = secs[si].fields[fi]; secs[si].fields[fi] = t; }
+        else if (act === "fdel") { secs[si].fields.splice(fi, 1); }
+        drawBuilder();
+      });
+    });
+  }
+
+  // New questions get a stable id derived from their label once, at save time.
+  // Ids never change afterwards — they key the stored submission data.
+  function assignQuestionNames() {
+    var taken = {};
+    ibDraft.sections.forEach(function (s) { (s.fields || []).forEach(function (f) { if (f.name) taken[f.name] = 1; }); });
+    ibDraft.sections.forEach(function (s) {
+      (s.fields || []).forEach(function (f) {
+        if (f.name) return;
+        var base = (f.label || "question").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40) || "question";
+        var name = base, i = 2;
+        while (taken[name]) { name = base + "_" + i; i++; }
+        taken[name] = 1; f.name = name;
+      });
+    });
+  }
+
+  function saveIntakeBuilder() {
+    assignQuestionNames();
+    var btn = $("#ibSave"); btn.disabled = true; btn.textContent = "Saving…";
+    api("PUT", "/api/content/intakeForm", { sections: ibDraft.sections })
+      .then(function () {
+        state.content.intakeForm = { sections: clone(ibDraft.sections) };
+        $("#savedMsg").classList.remove("hidden");
+        toast("Saved — the intake form is updated");
         setTimeout(function () { $("#savedMsg") && $("#savedMsg").classList.add("hidden"); }, 2500);
       })
       .catch(function (e) { toast(e.message, true); })

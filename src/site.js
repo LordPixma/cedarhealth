@@ -3,7 +3,7 @@
 // unchanged.
 
 import { esc, escLines, attr, rich, richLines } from "./lib/html.js";
-import { INTAKE_SCHEMA } from "./lib/defaults.js";
+import { resolveIntakeSchema } from "./lib/intake.js";
 
 /* ------------------------------------------------------------------ icons */
 const ICONS = {
@@ -370,6 +370,13 @@ function field(f) {
   const im = f.inputmode ? ` inputmode="${attr(f.inputmode)}"` : "";
   const val = f.value ? ` value="${attr(f.value)}"` : "";
 
+  if (f.type === "note") {
+    // Display-only paragraph; stores no answer.
+    return `
+      <div class="${col}">
+        <p class="intake-section__intro">${rich(f.label)}</p>
+      </div>`;
+  }
   if (f.type === "consent") {
     return `
       <div class="consent-row${f.plain ? " consent-row--plain" : ""}">
@@ -414,7 +421,7 @@ function field(f) {
 
 export function renderIntake(content) {
   const intake = content.intake || {};
-  const sections = INTAKE_SCHEMA.map((s) => `
+  const sections = resolveIntakeSchema(content).map((s) => `
     <fieldset class="intake-section">
       <legend><span class="intake-section__n">${s.id === "consent" ? "" : ""}</span>${esc(s.title)}</legend>
       ${s.intro ? `<p class="intake-section__intro">${esc(s.intro)}</p>` : ""}

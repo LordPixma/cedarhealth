@@ -2,7 +2,8 @@
 // Authenticated (clinic session): content writes, uploads, submissions, account.
 
 import { verifyPassword, hashPassword, createSession, verifySession } from "./lib/auth.js";
-import { CONTENT_SECTIONS, INTAKE_SCHEMA } from "./lib/defaults.js";
+import { CONTENT_SECTIONS } from "./lib/defaults.js";
+import { resolveIntakeSchema, sanitizeIntakeForm } from "./lib/intake.js";
 import { esc } from "./lib/html.js";
 import {
   getAllContent, setContent,
@@ -64,8 +65,15 @@ export async function handleApi(request, env, url, ctx) {
     if (path.startsWith("/api/content/") && method === "PUT") {
       const section = decodeURIComponent(path.slice("/api/content/".length));
       if (!CONTENT_SECTIONS.includes(section)) return json({ error: "Unknown section." }, 400);
-      const body = await request.json().catch(() => null);
+      let body = await request.json().catch(() => null);
       if (!body || typeof body !== "object") return json({ error: "Invalid body." }, 400);
+      // The intake form definition is structurally validated: the submission
+      // API depends on its locked fields, so a bad save is rejected outright.
+      if (section === "intakeForm") {
+        const res = sanitizeIntakeForm(body);
+        if (!res.ok) return json({ error: res.error }, 400);
+        body = { sections: res.sections };
+      }
       await setContent(env, section, body);
       return json({ ok: true });
     }
@@ -85,7 +93,7 @@ export async function handleApi(request, env, url, ctx) {
     if (path === "/api/submissions/export" && method === "GET") {
       const status = url.searchParams.get("status") || null;
       const rows = await allSubmissions(env, status);
-      const csv = buildCsv(rows);
+      const csv = buildCsv(rows, resolveIntakeSchema(await getAllContent(env)));
       const date = new Date().toISOString().slice(0, 10);
       await logAccess(env, { admin_email: user.email, action: "exported", detail: rows.length + " records" });
       return new Response("﻿" + csv, {
@@ -100,7 +108,7 @@ export async function handleApi(request, env, url, ctx) {
       const sub = await getSubmission(env, id);
       if (!sub) return json({ error: "Not found." }, 404);
       await logAccess(env, { admin_email: user.email, action: "viewed", submission_id: id, detail: sub.patient_name });
-      return json({ submission: sub, schema: INTAKE_SCHEMA });
+      return json({ submission: sub, schema: resolveIntakeSchema(await getAllContent(env)) });
     }
     if (path.startsWith("/api/submissions/") && method === "PATCH") {
       const id = parseInt(path.slice("/api/submissions/".length), 10);
@@ -273,10 +281,10 @@ function intakeRecipients(env) {
   return { to, bcc };
 }
 
-function formatIntakeEmail(data, name) {
+function formatIntakeEmail(data, name, schema) {
   const textLines = ["A new patient registration was submitted through the website.", ""];
   const htmlSections = [];
-  for (const section of INTAKE_SCHEMA) {
+  for (const section of schema) {
     textLines.push(section.title.toUpperCase());
     const rows = [];
     for (const f of section.fields) {
@@ -304,7 +312,8 @@ function formatIntakeEmail(data, name) {
 async function sendIntakeEmail(env, data, name) {
   const { to, bcc } = intakeRecipients(env);
   if (!to.length) return;
-  const { subject, text, html } = formatIntakeEmail(data, name);
+  const schema = resolveIntakeSchema(await getAllContent(env));
+  const { subject, text, html } = formatIntakeEmail(data, name, schema);
   const domain = (to[0].split("@")[1] || "").trim();
   const from = (env.INTAKE_EMAIL_FROM || "noreply@" + domain).trim();
   // `to` recipients see each other; `bcc` copies stay hidden. Combined max is 50.
@@ -323,8 +332,8 @@ function csvCell(v) {
   v = String(v == null ? "" : v);
   return /[",\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
 }
-function buildCsv(rows) {
-  const fields = INTAKE_SCHEMA.flatMap((s) => s.fields.filter((f) => f.type !== "note"));
+function buildCsv(rows, schema) {
+  const fields = schema.flatMap((s) => s.fields.filter((f) => f.type !== "note"));
   const headers = ["ID", "Submitted", "Status", "Name", "Email", "Phone"].concat(fields.map((f) => f.label || f.name));
   const lines = [headers.map(csvCell).join(",")];
   for (const r of rows) {
