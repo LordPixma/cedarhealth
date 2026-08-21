@@ -457,6 +457,8 @@ p { margin: 0; }
   display: flex; flex-wrap: wrap; gap: .6rem 1.2rem; align-items: center; justify-content: space-between;
   font-size: .85rem; color: #97ac9c; font-family: var(--util);
 }
+.foot-credit a { color: #cdd9cf; text-decoration: underline; text-underline-offset: 2px; transition: color .15s ease; }
+.foot-credit a:hover { color: #86d29a; }
 @media (max-width: 720px) {
   .site-footer .wrap { grid-template-columns: 1fr; }
   .foot-nav { justify-content: flex-start; }

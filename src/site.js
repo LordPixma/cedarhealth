@@ -100,6 +100,7 @@ function footer(content) {
       <div class="foot-base">
         <span>&copy; <span id="year">2026</span> ${esc(content.brand?.name || "Cedar Health")} &middot; Niagara Falls, Ontario</span>
         <span>${esc(f.note || "")}</span>
+        <span class="foot-credit">Designed by <a href="https://www.360designcx.com" target="_blank" rel="noopener">360designcx</a></span>
       </div>
     </div>
   </footer>`;
