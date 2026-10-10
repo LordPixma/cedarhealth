@@ -23,6 +23,7 @@ const ICONS = {
   // contact
   pin: '<path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/>',
   phone: '<path d="M4 5c0 9 6 15 15 15l1-4-5-2-2 2a11 11 0 0 1-5-5l2-2-2-5-4 1Z"/>',
+  fax: '<path d="M7 9V3h10v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/>',
   mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>'
 };
 const SPRIG = '<path d="M16 3c1.8 2.7 3 5 3 7.6 0 1-.2 1.9-.6 2.8 1.4-.8 2.4-2 3.1-3.6.6 2.6.3 5-1 7.2-.8 1.4-1.9 2.4-3.2 3.1V29h-2.6v-8.9c-1.3-.7-2.4-1.7-3.2-3.1-1.3-2.2-1.6-4.6-1-7.2.7 1.6 1.7 2.8 3.1 3.6-.4-.9-.6-1.8-.6-2.8C13 8 14.2 5.7 16 3Z" fill="currentColor"/>';
@@ -318,6 +319,7 @@ function sectionHead(sec, onDark = false) {
 function contactSection(content) {
   const c = content.contact || {};
   const phone = (c.phone || "").trim();
+  const fax = (c.fax || "").trim();
   const email = (c.email || "").trim();
   const tbc = (label) => `<span class="tbc">${esc(label)}</span>`;
   return `
@@ -334,7 +336,11 @@ function contactSection(content) {
               <li>
                 ${cic("phone")}
                 <div><div class="k">Phone</div><div class="v">${phone ? `<a href="tel:${attr(phone.replace(/[^0-9+]/g, ""))}">${esc(phone)}</a>` : tbc("To be confirmed")}</div></div>
-              </li>
+              </li>${fax ? `
+              <li>
+                ${cic("fax")}
+                <div><div class="k">Fax</div><div class="v">${esc(fax)}</div></div>
+              </li>` : ""}
               <li>
                 ${cic("mail")}
                 <div><div class="k">Email</div><div class="v">${email ? `<a href="mailto:${attr(email)}">${esc(email)}</a>` : tbc("To be confirmed")}</div></div>
