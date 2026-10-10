@@ -145,9 +145,10 @@
       { k: "items", label: "Steps", type: "list", item: [T("title", "Title"), T("body", "Description", "textarea", FMT)] }
     ]},
     strip: { title: "“At a glance” band", desc: "The four quick facts under the hero.", arrayOf: [T("k", "Big word"), T("v", "Small line under it")] },
-    contact: { title: "Hours & contact", desc: "Address, phone, email and opening hours.", fields: [
+    contact: { title: "Hours & contact", desc: "Address, phone, fax, email and opening hours.", fields: [
       T("eyebrow", "Small label", "text"), T("title", "Section heading", "text"), T("body", "Intro line", "textarea", FMT),
-      T("address", "Clinic address", "textarea"), T("phone", "Phone number", "text"), T("email", "Email", "text"),
+      T("address", "Clinic address", "textarea"), T("phone", "Phone number", "text"),
+      T("fax", "Fax number", "text", "Leave blank to hide the fax line on the website."), T("email", "Email", "text"),
       { k: "hours", label: "Opening hours", type: "rows", item: [T("d", "Day(s)"), T("t", "Hours")] }
     ]},
     brand: { title: "Logo & clinic name", desc: "Your name and logo across the site.", fields: [

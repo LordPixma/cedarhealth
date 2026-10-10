@@ -88,6 +88,7 @@ export const DEFAULT_CONTENT = {
     body: "New patients are welcome. Complete the patient intake form and we'll be in touch to confirm your first appointment.",
     address: "6453 Morrisons Rd\nNiagara Falls, Ontario",
     phone: "",
+    fax: "",
     email: "",
     hours: [
       { d: "Monday – Thursday", t: "8:00 – 20:00" },
