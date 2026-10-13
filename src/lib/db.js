@@ -5,18 +5,28 @@ import { DEFAULT_CONTENT } from "./defaults.js";
 
 /* ---------------- content ---------------- */
 
-// Returns the full content object: saved rows overlaid on the defaults.
+// Returns the full content object: saved rows overlaid on the defaults. Object
+// sections are filled key-by-key, so a field added to DEFAULT_CONTENT after a
+// section was saved still gets its default; saved values always win.
 export async function getAllContent(env) {
   const merged = structuredClone(DEFAULT_CONTENT);
   try {
     const { results } = await env.DB.prepare("SELECT section, data FROM content").all();
     for (const row of results || []) {
-      try { merged[row.section] = JSON.parse(row.data); } catch { /* keep default */ }
+      try {
+        const saved = JSON.parse(row.data);
+        const base = merged[row.section];
+        merged[row.section] = isPlainObject(base) && isPlainObject(saved) ? { ...base, ...saved } : saved;
+      } catch { /* keep default */ }
     }
   } catch {
     // DB not migrated yet — defaults are fine for a first render.
   }
   return merged;
+}
+
+function isPlainObject(v) {
+  return v !== null && typeof v === "object" && !Array.isArray(v);
 }
 
 export async function setContent(env, section, dataObject) {

@@ -200,7 +200,9 @@ p { margin: 0; }
   background-size: cover, cover, cover, cover;
 }
 .hero .wrap { position: relative; z-index: 1; padding-block: clamp(4rem, 10vw, 7rem); }
-.hero__copy { max-width: 640px; }
+/* Wide enough for three CTA buttons on one row; the headline keeps its
+   original 640px measure so its line breaks don't change. */
+.hero__copy { max-width: 700px; }
 .hero__copy > * + * { margin-top: 1.4rem; }
 
 .hero .pill {
@@ -212,7 +214,7 @@ p { margin: 0; }
 .hero h1 {
   font-size: clamp(2.5rem, 1.6rem + 3.8vw, 4.35rem);
   font-weight: 800; letter-spacing: -0.032em;
-  color: #fff; max-width: 15ch;
+  color: #fff; max-width: min(15ch, 640px);
   text-shadow: 0 2px 30px rgba(0,0,0,.35);
 }
 .hero h1 em { font-style: normal; color: #8fe0a6; }

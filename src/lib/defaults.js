@@ -25,6 +25,10 @@ export const DEFAULT_CONTENT = {
     photoUrl: "/images/hero.jpg",
     ctaPrimary: "Register as a patient",
     ctaSecondary: "Call the clinic",
+    // Existing patients book through the clinic's Ocean online-booking page
+    // (synced with the EMR). A blank URL hides the button.
+    ctaBook: "Book appointment (patients only)",
+    bookingUrl: "https://ocean.cognisantmd.com/online-booking/be8b5ac3-34d9-40b2-9b2f-de9562ebcd28",
     trust: ["All ages welcome", "Same-day slots held daily", "On-site lab & vaccines"]
   },
 
