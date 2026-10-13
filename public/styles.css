@@ -454,6 +454,7 @@ p { margin: 0; }
 .site-footer .brand b { font-weight: 800; }
 .site-footer .brand svg { color: #86d29a; }
 .foot-tag { margin-top: 1rem; max-width: 36ch; color: #a9bfae; font-size: .96rem; line-height: 1.6; }
+.foot-book { margin-top: 1.3rem; }
 .foot-nav { display: flex; flex-wrap: wrap; gap: .6rem 1.5rem; justify-content: flex-end; }
 .foot-nav a { text-decoration: none; color: #cdd9cf; font-family: var(--util); font-size: .95rem; opacity: .85; transition: opacity .15s ease, color .15s ease; }
 .foot-nav a:hover { opacity: 1; color: #fff; }

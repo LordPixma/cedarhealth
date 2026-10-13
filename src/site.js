@@ -83,6 +83,7 @@ function header(content) {
 
 function footer(content) {
   const f = content.footer || {};
+  const booking = bookingButton(content, "btn--ondark btn--ghost");
   return `
   <footer class="site-footer">
     <div class="wrap">
@@ -90,7 +91,8 @@ function footer(content) {
         <a class="brand" href="/" aria-label="${attr(content.brand?.name || "Cedar Health")} home">
           ${brandMark(content)}
         </a>
-        <p class="foot-tag">${rich(f.tagline || "")}</p>
+        <p class="foot-tag">${rich(f.tagline || "")}</p>${booking ? `
+        <div class="foot-book">${booking}</div>` : ""}
       </div>
       <nav class="foot-nav" aria-label="Footer">
         ${navLinks(content, "        ", ["services", "doctors", "steps"])}
@@ -145,15 +147,16 @@ function heroHeading(hero) {
   return heading;
 }
 
-// The "Book appointment" button (homepage hero, contact card and the top of
-// the intake page). Label and link live in
-// content.hero. Only http(s) links render, so a mistyped URL hides the button
-// rather than producing a broken or unsafe href.
-function bookingButton(content) {
+// The "Book appointment" button (homepage hero, contact card, top of the
+// intake page and the footer). Label and link live in content.hero. Only
+// http(s) links render, so a mistyped URL hides the button rather than
+// producing a broken or unsafe href. `variant` is the button modifier class;
+// the footer passes the outline style made for dark backgrounds.
+function bookingButton(content, variant = "btn--ghost") {
   const hero = content.hero || {};
   const url = (hero.bookingUrl || "").trim();
   if (!/^https?:\/\//i.test(url)) return "";
-  return `<a class="btn btn--ghost" href="${attr(url)}" target="_blank" rel="noopener">${esc(hero.ctaBook || "Book appointment (patients only)")}</a>`;
+  return `<a class="btn ${variant}" href="${attr(url)}" target="_blank" rel="noopener">${esc(hero.ctaBook || "Book appointment (patients only)")}</a>`;
 }
 
 export function renderHome(content) {
