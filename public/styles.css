@@ -459,6 +459,7 @@ p { margin: 0; }
 .foot-nav a { text-decoration: none; color: #cdd9cf; font-family: var(--util); font-size: .95rem; opacity: .85; transition: opacity .15s ease, color .15s ease; }
 .foot-nav a:hover { opacity: 1; color: #fff; }
 .foot-base {
+  grid-column: 1 / -1; /* the footer .wrap is a two-column grid; span both */
   border-top: 1px solid rgba(255,255,255,.12); margin-top: 2.2rem; padding-top: 1.4rem;
   display: flex; flex-wrap: wrap; gap: .6rem 1.2rem; align-items: center; justify-content: space-between;
   font-size: .85rem; color: #97ac9c; font-family: var(--util);
