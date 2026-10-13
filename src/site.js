@@ -148,6 +148,10 @@ function heroHeading(hero) {
 export function renderHome(content) {
   const hero = content.hero || {};
   const phone = (content.contact?.phone || "").trim();
+  // Only http(s) links render, so a mistyped URL hides the button rather than
+  // producing a broken or unsafe href.
+  const bookingUrl = (hero.bookingUrl || "").trim();
+  const showBooking = /^https?:\/\//i.test(bookingUrl);
   const heroStyle = hero.photoUrl ? ` style="--hero-photo:url('${attr(hero.photoUrl)}')"` : "";
   // Without a phone number the secondary CTA anchors to the contact section —
   // unless that section is hidden, in which case send people to the intake form.
@@ -169,6 +173,7 @@ export function renderHome(content) {
           <div class="hero__cta">
             <a class="btn" href="/intake">${esc(hero.ctaPrimary || "Register as a patient")}</a>
             <a class="btn btn--ghost" href="${phone ? "tel:" + attr(phone.replace(/[^0-9+]/g, "")) : ctaFallback}">${esc(hero.ctaSecondary || "Call the clinic")}</a>
+            ${showBooking ? `<a class="btn btn--ghost" href="${attr(bookingUrl)}" target="_blank" rel="noopener">${esc(hero.ctaBook || "Book appointment (patients only)")}</a>` : ""}
           </div>
           <ul class="hero__trust">
             ${(hero.trust || []).map((t) => `<li>${esc(t)}</li>`).join("")}
