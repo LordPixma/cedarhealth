@@ -127,7 +127,7 @@
       T("ctaPrimary", "Main button label", "text"),
       T("ctaSecondary", "Second button label", "text"),
       T("ctaBook", "Booking button label", "text"),
-      T("bookingUrl", "Booking link", "text", "Where the booking button goes (your Ocean online-booking page). Used by the booking buttons in the hero and the contact section. Must start with https://. Leave blank to hide both."),
+      T("bookingUrl", "Booking link", "text", "Where the booking button goes (your Ocean online-booking page). Used by the booking buttons on the homepage (hero and contact section) and at the top of the intake form. Must start with https://. Leave blank to hide both."),
       T("trust", "Checkmarked points", "tags")
     ]},
     services: { title: "Services", desc: "The “What we do” cards.", fields: [

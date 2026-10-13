@@ -509,6 +509,9 @@ p { margin: 0; }
   padding: .7rem 1rem; border-radius: var(--radius-sm); font-size: .95rem;
 }
 .intake-emergency strong { color: #b4472f; }
+/* Existing patients who land here are pointed to online booking instead. */
+.intake-booking { margin-top: 1.2rem; display: flex; flex-wrap: wrap; align-items: center; gap: .7rem 1rem; }
+.intake-booking p { color: var(--ink-soft); }
 
 .intake-body { padding-top: clamp(2rem, 4vw, 3rem); }
 .intake-form { max-width: 820px; }
