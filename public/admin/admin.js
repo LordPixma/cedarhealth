@@ -127,7 +127,7 @@
       T("ctaPrimary", "Main button label", "text"),
       T("ctaSecondary", "Second button label", "text"),
       T("ctaBook", "Booking button label", "text"),
-      T("bookingUrl", "Booking link", "text", "Where the booking button goes (your Ocean online-booking page). Must start with https://. Leave blank to hide the button."),
+      T("bookingUrl", "Booking link", "text", "Where the booking button goes (your Ocean online-booking page). Used by the booking buttons in the hero and the contact section. Must start with https://. Leave blank to hide both."),
       T("trust", "Checkmarked points", "tags")
     ]},
     services: { title: "Services", desc: "The “What we do” cards.", fields: [
@@ -147,7 +147,7 @@
       { k: "items", label: "Steps", type: "list", item: [T("title", "Title"), T("body", "Description", "textarea", FMT)] }
     ]},
     strip: { title: "“At a glance” band", desc: "The four quick facts under the hero.", arrayOf: [T("k", "Big word"), T("v", "Small line under it")] },
-    contact: { title: "Hours & contact", desc: "Address, phone, fax, email and opening hours.", fields: [
+    contact: { title: "Hours & contact", desc: "Address, phone, fax, email and opening hours. The booking button here uses the label and link set under Homepage hero.", fields: [
       T("eyebrow", "Small label", "text"), T("title", "Section heading", "text"), T("body", "Intro line", "textarea", FMT),
       T("address", "Clinic address", "textarea"), T("phone", "Phone number", "text"),
       T("fax", "Fax number", "text", "Leave blank to hide the fax line on the website."), T("email", "Email", "text"),

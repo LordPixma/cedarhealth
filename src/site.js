@@ -145,13 +145,19 @@ function heroHeading(hero) {
   return heading;
 }
 
+// The "Book appointment" button (hero + contact card). Label and link live in
+// content.hero. Only http(s) links render, so a mistyped URL hides the button
+// rather than producing a broken or unsafe href.
+function bookingButton(content) {
+  const hero = content.hero || {};
+  const url = (hero.bookingUrl || "").trim();
+  if (!/^https?:\/\//i.test(url)) return "";
+  return `<a class="btn btn--ghost" href="${attr(url)}" target="_blank" rel="noopener">${esc(hero.ctaBook || "Book appointment (patients only)")}</a>`;
+}
+
 export function renderHome(content) {
   const hero = content.hero || {};
   const phone = (content.contact?.phone || "").trim();
-  // Only http(s) links render, so a mistyped URL hides the button rather than
-  // producing a broken or unsafe href.
-  const bookingUrl = (hero.bookingUrl || "").trim();
-  const showBooking = /^https?:\/\//i.test(bookingUrl);
   const heroStyle = hero.photoUrl ? ` style="--hero-photo:url('${attr(hero.photoUrl)}')"` : "";
   // Without a phone number the secondary CTA anchors to the contact section —
   // unless that section is hidden, in which case send people to the intake form.
@@ -173,7 +179,7 @@ export function renderHome(content) {
           <div class="hero__cta">
             <a class="btn" href="/intake">${esc(hero.ctaPrimary || "Register as a patient")}</a>
             <a class="btn btn--ghost" href="${phone ? "tel:" + attr(phone.replace(/[^0-9+]/g, "")) : ctaFallback}">${esc(hero.ctaSecondary || "Call the clinic")}</a>
-            ${showBooking ? `<a class="btn btn--ghost" href="${attr(bookingUrl)}" target="_blank" rel="noopener">${esc(hero.ctaBook || "Book appointment (patients only)")}</a>` : ""}
+            ${bookingButton(content)}
           </div>
           <ul class="hero__trust">
             ${(hero.trust || []).map((t) => `<li>${esc(t)}</li>`).join("")}
@@ -326,6 +332,7 @@ function contactSection(content) {
   const phone = (c.phone || "").trim();
   const fax = (c.fax || "").trim();
   const email = (c.email || "").trim();
+  const booking = bookingButton(content);
   const tbc = (label) => `<span class="tbc">${esc(label)}</span>`;
   return `
     <section class="section section--tint" id="contact">
@@ -363,7 +370,11 @@ function contactSection(content) {
             <h3>Become a patient</h3>
             <p class="sub">${rich(c.body || "New patients are welcome. Complete the intake form and we'll be in touch.")}</p>
             <a class="btn" href="/intake" style="width:100%;justify-content:center;margin-top:.4rem">Start the patient intake form</a>
-            <p class="note">Takes about 10 minutes. In an emergency, call&nbsp;911.</p>
+            <p class="note">Takes about 10 minutes. In an emergency, call&nbsp;911.</p>${booking ? `
+            <div class="form__alt">
+              <p class="sub">Already a patient? Book your next appointment online.</p>
+              ${booking}
+            </div>` : ""}
           </div>
         </div>
       </div>
