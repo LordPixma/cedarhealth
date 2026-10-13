@@ -438,6 +438,9 @@ p { margin: 0; }
 .field input:focus, .field textarea:focus { outline: none; border-color: var(--leaf); background: #fff; box-shadow: var(--ring); }
 .form .btn { width: 100%; justify-content: center; margin-top: .5rem; }
 .form .note { font-size: .82rem; color: var(--muted); margin-top: .9rem; text-align: center; }
+/* Second block in the contact card (booking for existing patients). */
+.form__alt { margin-top: 1.4rem; padding-top: 1.4rem; border-top: 1px solid var(--line); }
+.form__alt .sub { margin-bottom: .4rem; }
 
 /* =========================================================
    Footer
