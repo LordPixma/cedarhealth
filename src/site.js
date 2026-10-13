@@ -145,7 +145,8 @@ function heroHeading(hero) {
   return heading;
 }
 
-// The "Book appointment" button (hero + contact card). Label and link live in
+// The "Book appointment" button (homepage hero, contact card and the top of
+// the intake page). Label and link live in
 // content.hero. Only http(s) links render, so a mistyped URL hides the button
 // rather than producing a broken or unsafe href.
 function bookingButton(content) {
@@ -444,6 +445,7 @@ function field(f) {
 
 export function renderIntake(content) {
   const intake = content.intake || {};
+  const booking = bookingButton(content);
   const sections = resolveIntakeSchema(content).map((s) => `
     <fieldset class="intake-section">
       <legend><span class="intake-section__n">${s.id === "consent" ? "" : ""}</span>${esc(s.title)}</legend>
@@ -460,7 +462,11 @@ export function renderIntake(content) {
         <p class="eyebrow">Patient intake</p>
         <h1>Become a patient at ${esc(content.brand?.name || "Cedar Health")}</h1>
         <p class="intake-hero__lede">${rich(intake.lede || "")} Fields marked <span class="req">*</span> are required.</p>
-        <p class="intake-emergency">⚠️ This form is not for emergencies or urgent medical problems. If you have a medical emergency, call <strong>911</strong>.</p>
+        <p class="intake-emergency">⚠️ This form is not for emergencies or urgent medical problems. If you have a medical emergency, call <strong>911</strong>.</p>${booking ? `
+        <div class="intake-booking">
+          <p><strong>Already a patient?</strong> You don't need this form — book your next appointment online.</p>
+          ${booking}
+        </div>` : ""}
       </div>
     </section>
     <section class="section intake-body">
